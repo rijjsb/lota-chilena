@@ -1,12 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { cartones } from './cartones'; 
 import './App.css';
 
 function App() {
+  // Memory: Load saved name and skin from the browser
+  const [userName, setUserName] = useState(localStorage.getItem('lota-name') || '');
+  const [skin, setSkin] = useState(localStorage.getItem('lota-skin') || 'classic');
+  
   const [marked, setMarked] = useState([]);
-  const [skin, setSkin] = useState('classic');
+  const [cartonIndex, setCartonIndex] = useState(0);
+  const [isGameStarted, setIsGameStarted] = useState(false);
 
-  // List of all your images based on your folder screenshot
+  // Persistence: Save name and skin whenever they change
+  useEffect(() => {
+    localStorage.setItem('lota-name', userName);
+    localStorage.setItem('lota-skin', skin);
+  }, [userName, skin]);
+
   const skinList = [
     { name: 'Clásico', value: 'classic' },
     { name: 'Poroto 1', value: 'Poroto1.jpg' },
@@ -17,7 +27,8 @@ function App() {
     { name: '$5 Cara', value: 'peso5a.jpg' },
     { name: '$5 Sello', value: 'peso5b.jpg' },
     { name: 'Escudo', value: 'Escudo.jpg' },
-    { name: 'Cheque', value: 'cheque.jpg' }
+    { name: 'Cheque', value: 'cheque.jpg' },
+    { name: '20 Lucas', value: '20lucas.jpg' }
   ];
 
   const toggleNumber = (num) => {
@@ -29,63 +40,114 @@ function App() {
     }
   };
 
-  // 1. Add this new Memory Chip at the top with your other states
-  const [cartonIndex, setCartonIndex] = useState(0); 
-
-  // 2. We should also add a function to "Clear" the markers 
-  // when we switch cards, so the old markers don't stay on the new card.
-  const switchCarton = (index) => {
-    setCartonIndex(index);
-    setMarked([]); // This "cleans" the board
+  const handleCartonChange = (e) => {
+    setCartonIndex(Number(e.target.value));
+    setMarked([]); 
   };
 
   return (
-    <div className="lota-container">
-      <h1>¡Lota Chilena!</h1>
+    <div className="main-wrapper">
+      <header className="game-header">
+        <img src="/lota-logo.png" alt="Lota Chilena" className="logo" />
+        <h1>¡Lota Chilena!</h1>
+      </header>
 
-      {/* 3. Add buttons to switch between Card 1 and Card 2 */}
-      <div className="carton-selector">
-        <button onClick={() => switchCarton(0)}>Cartón 1</button>
-        <button onClick={() => switchCarton(1)}>Cartón 2</button>
-      </div>
+      <main className="game-container">
+        
+        {!isGameStarted ? (
+          /* LOBBY SCREEN */
+          <div className="setup-card">
+            <h3>Configuración</h3>
+            
+            <div className="input-group">
+              <label>Tu Nombre:</label>
+              <input 
+                type="text" 
+                placeholder="Ej: Tío Lucho" 
+                value={userName} 
+                onChange={(e) => setUserName(e.target.value)}
+                maxLength={15}
+              />
+            </div>
 
-      <div className="skin-selector">
-        {skinList.map((s) => (
-          <button 
-            key={s.value} 
-            onClick={() => setSkin(s.value)}
-            className={skin === s.value ? 'active' : ''}
-          >
-            {s.name}
-          </button>
-        ))}
-      </div>
-      
-      <div className="carton">
-        {cartones[cartonIndex].rows.map((row, rowIndex) => (
-          <div key={rowIndex} className="row">
-            {row.map((num, colIndex) => (
-              <div 
-                key={colIndex} 
-                className={`cell ${num === 0 ? 'empty' : ''}`}
-                onClick={() => toggleNumber(num)}
-              >
-                {num !== 0 && <span className="number-text">{num}</span>}
+            <div className="controls-row">
+              <div className="control-group">
+                <label>Cartón:</label>
+                <select value={cartonIndex} onChange={handleCartonChange}>
+                  {cartones.map((c, index) => (
+                    <option key={c.id} value={index}>#{c.id}</option>
+                  ))}
+                </select>
+              </div>
 
-                {marked.includes(num) && (
-                  <div className="marker-container">
-                    {skin === 'classic' ? (
-                      <div className="classic-dot"></div>
-                    ) : (
-                      <img src={`/skins/${skin}`} alt="skin" className="skin-img" />
+              <div className="control-group">
+                <label>Skin Inicial:</label>
+                <select value={skin} onChange={(e) => setSkin(e.target.value)}>
+                  {skinList.map((s) => (
+                    <option key={s.value} value={s.value}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <button 
+              className="start-btn" 
+              disabled={userName.trim().length < 2}
+              onClick={() => setIsGameStarted(true)}
+            >
+              {userName.trim().length < 2 ? 'Escribe tu nombre...' : '¡A Jugar!'}
+            </button>
+          </div>
+        ) : (
+          /* IN-GAME SCREEN */
+          <div className="ingame-status">
+            <h2>¡Suerte, {userName}!</h2>
+            <p>Jugando con Cartón <strong>#{cartones[cartonIndex].id}</strong></p>
+            
+            <div className="mid-game-skin">
+              <label>Cambiar Skin:</label>
+              <select value={skin} onChange={(e) => setSkin(e.target.value)}>
+                {skinList.map((s) => (
+                  <option key={s.value} value={s.value}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <button className="reset-btn" onClick={() => setIsGameStarted(false)}>
+              Cambiar Cartón / Salir
+            </button>
+          </div>
+        )}
+        
+        {/* THE BOARD */}
+        <div className="carton-wrapper">
+          <div className="carton">
+            {cartones[cartonIndex].rows.map((row, rowIndex) => (
+              <div key={rowIndex} className="row">
+                {row.map((num, colIndex) => (
+                  <div 
+                    key={colIndex} 
+                    className={`cell ${num === 0 ? 'empty' : ''}`}
+                    onClick={() => toggleNumber(num)}
+                  >
+                    {num !== 0 && <span className="number-text">{num}</span>}
+
+                    {marked.includes(num) && (
+                      <div className="marker-container">
+                        {skin === 'classic' ? (
+                          <div className="classic-dot"></div>
+                        ) : (
+                          <img src={`/skins/${skin}`} alt="skin" className="skin-img" />
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
+                ))}
               </div>
             ))}
           </div>
-        ))}
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
