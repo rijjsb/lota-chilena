@@ -9,6 +9,22 @@ function App() {
   const [cartonIndex, setCartonIndex] = useState(0);
   const [isGameStarted, setIsGameStarted] = useState(false);
 
+  // --- LIVE EVENT STATES ---
+  const [announcement, setAnnouncement] = useState(null); // { msg: '', type: '', val: '' }
+
+  // Variables for timing (seconds)
+  const TIMING = { number: 3000, request: 1000, win: 5000 };
+
+  const triggerAnnouncement = (msg, type, val = '') => {
+    setAnnouncement({ msg, type, val });
+  
+    // Audio Logic
+    const sounds = { number: 'pop.mp3', request: 'alert.mp3', win: 'win.mp3' };
+    const audio = new Audio(`/sounds/${sounds[type]}`);
+      audio.play().catch(() => console.log("Audio blocked - click anywhere first!"));
+
+      setTimeout(() => setAnnouncement(null), TIMING[type]);
+  };
   // --- SNOOP MODAL LOGIC ---
   const [showSnoop, setShowSnoop] = useState(false);
   
@@ -127,6 +143,8 @@ function App() {
     setCalledNumbers([...calledNumbers, random]);
     setLastDrawn(random);
     addToLog(`Salió el ${random}`);
+
+    triggerAnnouncement(`¡Número ${random}!`, 'number', random);
   };
 
   const toggleNumber = (num) => {
@@ -152,6 +170,7 @@ function App() {
     setPrizesClaimed(prev => ({ ...prev, [prizeType]: true }));
     addToLog(`¡${winnerName} ha ganado la ${prizeType.toUpperCase()}!`, 'success');
     setShowSnoop(false);
+    triggerAnnouncement(`¡${winnerName} ganó la ${prizeType.toUpperCase()}!`, 'win');
   };
 
   const MiniCarton = ({ cId, pMarked }) => (
@@ -329,21 +348,32 @@ function App() {
                 <button 
                   className="prize-btn" 
                   disabled={prizesClaimed.terna}
-                  onClick={() => addToLog(`${userName} solicita revisar TERNA`, 'request', userName)}
+                  onClick={() => {
+                    addToLog(`${userName} solicita revisar TERNA`, 'request', userName);
+                    triggerAnnouncement(`${userName} grita ¡TERNA!`, 'request');
+                  }}
                 >
                   {prizesClaimed.terna ? 'TERNA Cobrada' : '¡TERNA!'}
                 </button>
+
                 <button 
                   className="prize-btn" 
                   disabled={!prizesClaimed.terna || prizesClaimed.linea}
-                  onClick={() => addToLog(`${userName} solicita revisar LÍNEA`, 'request', userName)}
+                  onClick={() => {
+                    addToLog(`${userName} solicita revisar LÍNEA`, 'request', userName);
+                    triggerAnnouncement(`${userName} grita ¡LÍNEA!`, 'request');
+                  }}
                 >
                   {prizesClaimed.linea ? 'LÍNEA Cobrada' : '¡LÍNEA!'}
                 </button>
+
                 <button 
                   className="prize-btn" 
                   disabled={!prizesClaimed.linea || prizesClaimed.lota}
-                  onClick={() => addToLog(`${userName} solicita revisar LOTA`, 'request', userName)}
+                  onClick={() => {
+                    addToLog(`${userName} solicita revisar LOTA`, 'request', userName);
+                    triggerAnnouncement(`${userName} grita ¡LOTA!`, 'request');
+                  }}
                 >
                   {prizesClaimed.lota ? 'LOTA Cobrada' : '¡LOTA!'}
                 </button>
@@ -423,7 +453,17 @@ function App() {
           </div>
         )}
       </main>
-    </div>
+      {/* PASTE HERE - Right before the last </div> */}
+        {announcement && (
+          <div className={`announcement-overlay ${announcement.type}`}>
+            <div className="announcement-content">
+              {announcement.type === 'number' && <div className="number-ball">{announcement.val}</div>}
+              <h1>{announcement.msg}</h1>
+              {announcement.type === 'win' && <div className="confetti-placeholder">🎉✨</div>}
+            </div>
+          </div>
+        )}
+     </div>
   );
 }
 
