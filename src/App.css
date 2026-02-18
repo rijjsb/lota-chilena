@@ -203,3 +203,424 @@ select {
   border: 2px solid #27ae60;
   border-radius: 50%;
 }
+
+/* Keep all your previous body/wrapper styles */
+
+.lobby-welcome {
+  font-size: 14px;
+  color: #555;
+  margin-top: -10px;
+  margin-bottom: 20px;
+}
+
+/* POINT 3: Flex container for Sidebar + Card */
+.lobby-flex-container {
+  display: flex;
+  gap: 20px;
+  align-items: stretch;
+  margin-bottom: 30px;
+  width: 100%;
+  max-width: 750px;
+}
+
+/* POINT 2: Players Sidebar */
+.players-sidebar {
+  flex: 1;
+  background: white;
+  padding: 20px;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  border: 1px solid #eee;
+}
+
+.players-sidebar h4 {
+  margin-top: 0;
+  font-size: 14px;
+  color: #8b4513;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 10px;
+}
+
+.player-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.player-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  font-size: 13px;
+  border-bottom: 1px dashed #eee;
+}
+
+.player-list li.is-mc { font-weight: bold; color: #2c3e50; }
+.p-status { font-size: 11px; color: #666; }
+
+/* Adjusted Setup Card for the Flex layout */
+.setup-card {
+  flex: 1.5;
+  margin-bottom: 0; /* Removing previous margin */
+}
+
+/* POINT 4: Specific Button styles */
+.mc-btn:disabled {
+  background-color: #95a5a6;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+@media (max-width: 650px) {
+  .lobby-flex-container { flex-direction: column; }
+}
+
+/* ... Keep all your original Lobby and Board styles ... */
+
+.host-split-view {
+  display: flex;
+  gap: 30px;
+  width: 95vw;
+  max-width: 1200px;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.mc-control-tower {
+  flex: 1;
+  background: white;
+  padding: 20px;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  max-width: 460px;
+}
+
+.mc-draw-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #2c3e50;
+  padding: 15px;
+  border-radius: 12px;
+  color: white;
+  margin-bottom: 15px;
+}
+
+.draw-btn {
+  background: #e67e22;
+  border: none;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.mc-last-num { font-size: 42px; font-weight: 900; }
+
+.mc-log {
+  height: 120px;
+  overflow-y: auto;
+  background: #f8f9fa;
+  border: 1px solid #eee;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.log-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  padding: 4px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.request-style { background: #fff9db; padding: 6px; border-radius: 4px; }
+
+.trigger-btn {
+  background: #333;
+  color: white;
+  border: none;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+/* Point 2 & 3: Left Aligned Matrix */
+.mc-matrix {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.matrix-row {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-start; /* Aligns all rows to the left */
+}
+
+.m-cell {
+  width: 30px;
+  height: 30px;
+  background: #fdf2d0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+  border-radius: 4px;
+}
+
+.m-cell.hit { background: #e74c3c; color: white; }
+
+@media (max-width: 1000px) {
+  .host-split-view { flex-direction: column; align-items: center; }
+}
+
+/* ADD TO THE BOTTOM OF YOUR APP.CSS */
+
+/* MC Extra Buttons Container */
+.mc-extra-controls {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 25px;
+}
+
+.snoop-btn {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #fcf8f0;
+  width: 90%;
+  max-width: 1000px;
+  max-height: 85vh;
+  padding: 40px;
+  border-radius: 20px;
+  position: relative;
+  overflow-y: auto;
+}
+
+.modal-close {
+  position: absolute;
+  top: 20px; right: 20px;
+  background: #e74c3c;
+  color: white; border: none;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  font-weight: bold; cursor: pointer;
+}
+
+/* Snoop Grid */
+.snoop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 25px;
+  margin-top: 20px;
+}
+
+.snoop-card {
+  background: white;
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+  justify-content: center; align-items: center;
+}
+
+.snoop-card h4 { margin: 0 0 10px 0; color: #2c3e50; }
+
+/* Mini Carton Styles */
+.mini-carton {
+  display: flex;
+  flex-direction: column;
+  background-color: #fdf2d0;
+  padding: 4px;
+  border: 2px solid #8b4513;
+  border-radius: 4px;
+}
+
+.mini-row { display: flex; justify-content: center; align-items: center;}
+
+.mini-cell {
+  width: 28px; height: 28px;
+  border: 1px solid #e6ccb2;
+  display: flex; align-items: center;
+  justify-content: center;
+  background-color: white;
+  position: relative;
+}
+
+.mini-cell.empty { background-color: #f5ebe0; }
+
+.mini-num { font-size: 10px; font-weight: bold; }
+
+.mini-dot {
+  position: absolute;
+  width: 18px; height: 18px;
+  background-color: rgba(46, 204, 113, 0.7);
+  border: 1px solid #27ae60;
+  border-radius: 50%;
+}
+
+/* --- SNOOP MODAL STYLES --- */
+.snoop-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.9); /* Darker backdrop */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999999; /* Highest priority */
+}
+
+.snoop-window {
+  background: #fcf8f0;
+  width: 90%;
+  max-width: 950px;
+  max-height: 85vh;
+  padding: 40px;
+  border-radius: 20px;
+  border: 4px solid #8b4513;
+  position: relative;
+  overflow-y: auto;
+}
+
+.snoop-close-btn {
+  position: absolute;
+  top: 15px; right: 15px;
+  background: #8b4513;
+  color: white;
+  border: none;
+  width: 40px; height: 40px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.snoop-close-btn:hover {
+  background: #a0522d; /* Lights up a bit when hovering */
+}
+
+.snoop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.snoop-card {
+  background: white;
+  padding: 10px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  border: 1px solid #eee;
+}
+
+.snoop-card p {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: #8b4513;
+}
+
+/* MINI BOARD STYLE */
+.mini-carton {
+  display: flex; flex-direction: column;
+  background-color: #fdf2d0; padding: 4px;
+  border: 2px solid #8b4513; border-radius: 4px;
+}
+
+.mini-row { display: flex; }
+
+.mini-cell {
+  width: 25px; height: 25px;
+  border: 1px solid #e6ccb2;
+  display: flex; align-items: center; justify-content: center;
+  background-color: white; position: relative;
+}
+
+.mini-cell.empty { background-color: #f5ebe0; }
+.mini-num { font-size: 9px; font-weight: bold; }
+
+.mini-dot {
+  position: absolute; width: 15px; height: 15px;
+  background-color: rgba(46, 204, 113, 0.7);
+  border: 1px solid #27ae60; border-radius: 50%;
+}
+
+.prize-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 15px 0;
+}
+
+.prize-btn {
+  padding: 10px 20px;
+  border: 2px solid #8b4513;
+  background: white;
+  color: #8b4513;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.prize-btn:hover {
+  background: #fdf2d0;
+  transform: translateY(-2px);
+}
+
+.prize-btn:active {
+  transform: translateY(0);
+}
+
+.prize-btn:hover:not(:disabled) {
+  background: #8b4513;
+  color: white;
+}
+
+.prize-btn:disabled {
+  background-color: #e0e0e0;
+  border-color: #ccc;
+  color: #999;
+  cursor: not-allowed;
+  transform: none; /* Removes the hover lift effect */
+  opacity: 0.7;
+}
+
+/* Optional: Different color for the big win */
+.prize-btn:nth-child(3):not(:disabled) {
+  border-color: #e67e22;
+  color: #e67e22;
+}
+.prize-btn:nth-child(3):hover:not(:disabled) {
+  background: #e67e22;
+  color: white;
+}
