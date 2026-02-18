@@ -12,13 +12,24 @@ function App() {
   // --- SNOOP MODAL LOGIC ---
   const [showSnoop, setShowSnoop] = useState(false);
   
-  const fakePlayers = [
-    { name: userName + " (MC)", cartonId: cartonIndex, marked: marked }, 
-    { name: 'Caqui', cartonId: 1, marked: [4,25,39] },
-    { name: 'Karen', cartonId: 2, marked: [] },
-    { name: 'Tío Lucho', cartonId: 5, marked: [] },
-    { name: 'La Jefa', cartonId: 8, marked: [] }
-  ];
+  // 1. Expanded list of players (The "System" state)
+  const [players, setPlayers] = useState([
+    { id: 'p1', name: 'Rafa', role: 'MC', cartonId: 0, marked: [], status: 'Ready' },
+    { id: 'p2', name: 'Caqui', role: 'Player', cartonId: 1, marked: [], status: 'Ready' },
+    { id: 'p3', name: 'Karen', role: 'Player', cartonId: 2, marked: [], status: 'Ready' },
+    { id: 'p4', name: 'Nana', cartonId: 5, marked: [], status: 'Ready' },
+    { id: 'p5', name: 'Mario Papá', cartonId: 8, marked: [], status: 'Ready' },
+    { id: 'p6', name: 'Marito', cartonId: 10, marked: [], status: 'Ready' },
+    { id: 'p7', name: 'Robin', cartonId: 12, marked: [], status: 'Ready' },
+    { id: 'p8', name: 'Lore', cartonId: 15, marked: [], status: 'Ready' },
+    { id: 'p9', name: 'Caro', cartonId: 20, marked: [], status: 'Ready' },
+    { id: 'p10', name: 'Martín', cartonId: 25, marked: [], status: 'Ready' },
+  ]);
+
+  // 2. Derive which cartons are currently "Blocked"
+  const blockedCartonIds = players
+    .filter(p => p.name !== userName) // Only exclude the CURRENT user's hold
+    .map(p => p.cartonId);
 
   // Tracks which prizes are finished
   const [prizesClaimed, setPrizesClaimed] = useState({
@@ -72,6 +83,17 @@ function App() {
     localStorage.setItem('lota-skin', skin);
   }, [userName, skin]);
 
+  useEffect(() => {
+  const isTakenByOthers = players.some(p => p.cartonId === cartonIndex && p.name !== userName);
+  
+  if (isTakenByOthers) {
+    // Find the first ID that ISN'T in the blocked list
+    const firstAvailable = cartones.findIndex((_, idx) => !blockedCartonIds.includes(idx));
+    setCartonIndex(firstAvailable !== -1 ? firstAvailable : 0);
+    setMarked([]);
+  }
+}, [userName]);
+
   const skinList = [
     { name: 'Clásico', value: 'classic' },
     { name: 'Poroto 1', value: 'Poroto1.jpg' },
@@ -108,8 +130,22 @@ function App() {
   };
 
   const toggleNumber = (num) => {
-    if (num === 0) return;
-    setMarked(prev => prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num]);
+  if (num === 0) return;
+  
+  // 1. Update your local view
+  const newMarked = marked.includes(num) 
+      ? marked.filter(n => n !== num) 
+      : [...marked, num];
+      
+    setMarked(newMarked);
+
+    // 2. Sync to the global players list (Snoop Window)
+    setPlayers(prev => prev.map(p => 
+      // Check for "Rafa" or "Rafa (MC)" to be safe
+      (p.name === userName || p.name === userName + " (MC)")
+        ? { ...p, marked: newMarked } 
+        : p
+    ));
   };
 
   const validateWinner = (winnerName, prizeType) => {
@@ -156,7 +192,7 @@ function App() {
             <button className="snoop-close-btn" onClick={() => setShowSnoop(false)}>X</button>
             <h2 style={{color: '#8b4513', textAlign: 'center'}}>Monitoreo de Jugadores</h2>
             <div className="snoop-grid">
-              {fakePlayers.map((player, idx) => (
+              {players.map((player, idx) => (
                 <div key={idx} className="snoop-card">
                   <p style={{marginBottom: '10px'}}>
                     <strong>{player.name}</strong> — <small>Cartón #{cartones[player.cartonId].id}</small>
@@ -214,9 +250,14 @@ function App() {
               <div className="players-sidebar">
                 <h4>Jugadores Conectados:</h4>
                 <ul className="player-list">
-                  <li className="is-mc"><span>{lobbyInfo.creator}</span><span className="p-status">(MC)</span></li>
-                  {fakePlayers.filter(p => !p.name.includes("(MC)")).map((p, i) => (
-                    <li key={i}><span>{p.name}</span><span className="p-status">Status: Ready</span></li>
+                  {players.map((p) => (
+                    <li key={p.id} className={p.role === 'MC' ? 'is-mc' : ''}>
+                      <div className="p-info">
+                        <span>{p.name}</span>
+                        <span className="p-carton-tag">Cartón #{cartones[p.cartonId].id}</span>
+                      </div>
+                      <span className="p-status">{p.status}</span>
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -226,21 +267,40 @@ function App() {
                   <label>TU NOMBRE:</label>
                   <input type="text" value={userName} onChange={(e) => setUserName(e.target.value)} />
                 </div>
-                <div className="controls-row">
-                  <div className="control-group">
-                    <label>Cartón:</label>
-                    <select value={cartonIndex} onChange={(e) => {setCartonIndex(Number(e.target.value)); setMarked([]);}}>
-                      {cartones.map((c, i) => <option key={c.id} value={i}>#{c.id}</option>)}
-                    </select>
-                  </div>
-                  <div className="control-group">
-                    <label>Skin:</label>
-                    <select value={skin} onChange={(e) => setSkin(e.target.value)}>
-                      {skinList.map(s => <option key={s.value} value={s.value}>{s.name}</option>)}
-                    </select>
-                  </div>
+                <div className="control-group">
+                  <label>Cartón:</label>
+                  <select 
+                    value={cartonIndex} 
+                    disabled={isGameStarted}
+                    onChange={(e) => {
+                      const newIdx = Number(e.target.value);
+                      if (newIdx === -1) return; // Ignore placeholder click
+                      setCartonIndex(newIdx);
+                      setMarked([]);
+                      setPlayers(prev => prev.map(p => 
+                        p.name === userName ? { ...p, cartonId: newIdx } : p
+                      ));
+                    }}
+                  >
+                    {/* The Placeholder */}
+                    <option value={-1} disabled>--- Selecciona un Cartón ---</option>
+                    
+                    {cartones.map((c, i) => {
+                      const isTaken = blockedCartonIds.includes(i);
+                      return (
+                        <option key={c.id} value={i} disabled={isTaken}>
+                          #{c.id} {isTaken ? '(Ocupado)' : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
-                <button className="start-btn" onClick={() => setIsGameStarted(true)}>
+                <button 
+                  className="start-btn" 
+                  /* Disable if name is empty OR carton is taken by someone else */
+                  disabled={!userName.trim() || blockedCartonIds.includes(cartonIndex)} 
+                  onClick={() => setIsGameStarted(true)}
+                >
                   {isMC ? 'Iniciar Partida' : 'Entrar a la Partida'}
                 </button>
               </div>
@@ -322,7 +382,7 @@ function App() {
               <div className="mc-extra-actions" style={{marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center'}}>
                 <button className="reset-btn" onClick={() => setIsGameStarted(false)}>Salir al Lobby</button>
                 {isMC && (
-                  <button className="reset-btn" onClick={() => setShowSnoop(true)}>Jugadores ({fakePlayers.length}) 🔍</button>
+                  <button className="reset-btn" onClick={() => setShowSnoop(true)}>Jugadores ({players.length}) 🔍</button>
                 )}
               </div>
             </div>
