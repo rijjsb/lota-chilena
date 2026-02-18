@@ -17,15 +17,24 @@ body, html {
   justify-content: flex-start;
   width: 100vw; /* Force full screen width */
   min-height: 100vh;
-  padding: 40px 15px;
+  padding: 15px 15px;
 }
 
 .game-header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 25px;
+  margin-bottom: 0px;
+  margin-top: 0px;
   text-align: center;
+}
+
+.game-header h1 {
+  margin: 0.5;          /* Removes browser default top/bottom margin */
+  font-size: 3.5rem;  /* Slightly smaller to save vertical space */
+  line-height: 1;     /* Prevents extra height from line spacing */
+  margin-top: 15px;
+  margin-bottom: 25px;
 }
 
 .logo {
@@ -130,6 +139,17 @@ select {
   margin-bottom: 25px;
 }
 
+.ingame-status h3 {
+  color: #8b4513;
+  font-size: 1.1rem;
+  margin-top: 5px;
+  background: #fdf2d0;
+  display: inline-block;
+  padding: 5px 15px;
+  border-radius: 20px;
+  border: 1px dashed #8b4513;
+}
+
 .mid-game-skin {
   margin: 15px 0;
   display: flex;
@@ -218,7 +238,8 @@ select {
   display: flex;
   gap: 20px;
   align-items: stretch;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
+  margin-top: 1px;    /* Reduced margin */
   width: 100%;
   max-width: 750px;
 }
@@ -472,16 +493,77 @@ select {
   position: relative;
 }
 
+/* Snoop Helper Colors */
+.mini-cell.hit {
+  background-color: rgba(46, 204, 113, 0.3); /* Soft Green background */
+}
+.mini-cell.hit .mini-dot {
+  background-color: #27ae60; /* Solid Green dot */
+}
+
+.mini-cell.liar {
+  background-color: rgba(231, 76, 60, 0.3); /* Soft Red background */
+}
+.mini-cell.liar .mini-dot {
+  background-color: #c0392b; /* Bright Red dot - THE LIE! */
+  box-shadow: 0 0 5px red;
+}
+
+.mini-cell.missed {
+  background-color: rgba(52, 152, 219, 0.2); /* Soft Blue/Grey */
+  border: 1px dashed #3498db;
+}
+
+.mini-carton-header {
+  font-size: 12px;
+  margin-bottom: 5px;
+  color: #8b4513;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 2px;
+}
+
+/* .mini-cell {
+  width: 25px; height: 25px;
+  border: 1px solid #e6ccb2;
+  display: flex; align-items: center; justify-content: center;
+  background-color: white; position: relative;
+} */
+
 .mini-cell.empty { background-color: #f5ebe0; }
 
-.mini-num { font-size: 10px; font-weight: bold; }
+.mini-num { font-size: 9px; font-weight: bold; }
+
+.mini-cell.status-missed {
+  background-color: rgba(236, 161, 161, 0.2); /* Soft translucent blue */
+  box-shadow: inset 0 0 4px #f5e9e9;
+}
+
+.mini-num {
+  position: relative;
+  z-index: 1;
+  font-size: 10px;
+  font-weight: bold;
+}
 
 .mini-dot {
-  position: absolute;
-  width: 18px; height: 18px;
-  background-color: rgba(46, 204, 113, 0.7);
-  border: 1px solid #27ae60;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.mini-dot.dot-hit {
+  background-color: rgba(39, 174, 96, 0.6); 
+  border: 1px solid #27ae60;
+}
+
+.mini-dot.dot-liar {
+  background-color: rgba(192, 57, 43, 0.6); 
+  border: 1px solid #c0392b;
 }
 
 /* --- SNOOP MODAL STYLES --- */
@@ -558,22 +640,6 @@ select {
 
 .mini-row { display: flex; }
 
-.mini-cell {
-  width: 25px; height: 25px;
-  border: 1px solid #e6ccb2;
-  display: flex; align-items: center; justify-content: center;
-  background-color: white; position: relative;
-}
-
-.mini-cell.empty { background-color: #f5ebe0; }
-.mini-num { font-size: 9px; font-weight: bold; }
-
-.mini-dot {
-  position: absolute; width: 15px; height: 15px;
-  background-color: rgba(46, 204, 113, 0.7);
-  border: 1px solid #27ae60; border-radius: 50%;
-}
-
 .prize-actions {
   display: flex;
   gap: 10px;
@@ -623,4 +689,64 @@ select {
 .prize-btn:nth-child(3):hover:not(:disabled) {
   background: #e67e22;
   color: white;
+}
+
+.snoop-validation-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.val-btn {
+  flex: 1;
+  padding: 6px;
+  font-size: 11px;
+  font-weight: bold;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background-color: #27ae60; /* Success Green */
+  transition: background 0.2s;
+}
+
+.val-btn:hover {
+  background-color: #2ecc71;
+}
+
+/* Optional: Distinguish Lota (The big one) */
+.val-btn.lota {
+  background-color: #f39c12; /* Golden/Orange for Lota */
+}
+
+.val-btn:disabled {
+  background-color: #ccc !important;
+  color: #888 !important;
+  cursor: not-allowed;
+  opacity: 0.6;
+  border: 1px solid #999;
+}
+
+.log-entry.success-style {
+  background-color: #d4edda;
+  border-left: 4px solid #28a745;
+  color: #155724;
+  font-weight: bold;
+  padding: 8px;
+  margin: 4px 0;
+}
+
+.lobby-room-info {
+  background: #fff;
+  border: 1px solid #e0d7c6;
+  padding: 1px 20px;
+  border-radius: 100px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+  color: #5d4037;
+  font-size: 0.7rem;
+  margin-bottom: 45px;
+}
+
+.lobby-room-info strong {
+  color: #8b4513;
 }
