@@ -534,10 +534,13 @@ function LangToggle({ lang, onToggle }) {
   return (
     <button onClick={onToggle}
       title={lang === 'es' ? 'Switch to English' : 'Cambiar a Español'}
-      style={{background:'transparent',border:'1px solid rgba(212,82,42,.28)',borderRadius:8,padding:'5px 11px',cursor:'pointer',fontSize:'.82rem',lineHeight:1,flexShrink:0,display:'flex',alignItems:'center',gap:5,color:'#FFF3E0',fontFamily:"'Nunito',sans-serif",fontWeight:800}}>
-      {lang === 'es'
-        ? <><span style={{fontSize:'1.2rem'}}>🇨🇱</span> ES</>
-        : <><span style={{fontSize:'1.2rem'}}>🇳🇿</span> EN</>}
+      style={{background:'transparent',border:'1px solid rgba(212,82,42,.28)',borderRadius:8,padding:'5px 11px',cursor:'pointer',fontSize:'.82rem',lineHeight:1,flexShrink:0,display:'flex',alignItems:'center',gap:6,color:'#FFF3E0',fontFamily:"'Nunito',sans-serif",fontWeight:800}}>
+      <img
+        src={lang === 'es' ? '/flags/cl.png' : '/flags/nz.png'}
+        alt={lang === 'es' ? 'Chile' : 'New Zealand'}
+        style={{width:20,height:20,objectFit:'cover',borderRadius:3,display:'block'}}
+      />
+      {lang === 'es' ? 'ES' : 'EN'}
     </button>
   );
 }
