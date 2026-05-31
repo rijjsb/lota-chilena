@@ -830,6 +830,9 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
                 <div className="p-av">{p.name[0].toUpperCase()}</div>
                 <span className="p-name">{p.name}{p.id === me.id ? ` (${lang==='es'?'tú':'you'})` : ''}</span>
                 {p.isMC && <span className="p-tag-mc">MC</span>}
+                {pique.enabled && pique.participants.includes(p.id) && (
+                  <span title="En El Pique" style={{fontSize:'.8rem'}}>⚡</span>
+                )}
                 <span className="p-tag-ct">#{CARTONES[p.cartonIdx].id}</span>
                 {me.isMC && !p.isMC && (
                   <button className="btn btn-ghost btn-sm" style={{padding:'2px 7px',fontSize:'.65rem'}}
@@ -1578,7 +1581,10 @@ export default function App() {
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `code=eq.${code}` },
         (payload) => {
           const r = payload.new;
-          setSettings(r.settings);
+          const { pique: savedPique, ...gameSettings } = r.settings;
+          setSettings(gameSettings);
+          // Sync pique config from room settings (MC writes it, everyone reads it)
+          if (savedPique) setPique(prev => ({ ...prev, ...savedPique }));
           // Non-MC: follow room status to change screens
           if (!meRef.current?.isMC) {
             if (r.status === 'active'  && ['landing','lobby'].includes(screenRef.current)) setScreen('game');
@@ -1661,7 +1667,9 @@ export default function App() {
         .select('*').eq('room_code', code).eq('status', 'active').maybeSingle();
 
       window.history.pushState(null, '', `/${code}`);
-      setSettings(roomData.settings);
+      const { pique: savedPique, ...gameSettings } = roomData.settings;
+      setSettings(gameSettings);
+      if (savedPique) setPique(prev => ({ ...prev, ...savedPique }));
       setRoom({ code });
       setMe(player);
       setPlayers((allPlayers || []).map(supaToPlayer));
@@ -1696,7 +1704,14 @@ export default function App() {
   // ── SETTINGS (MC writes to DB) ────────────────────────────
   const handleSettings = useCallback(async (newSettings) => {
     setSettings(newSettings);
-    if (room?.code) await supabase.from('rooms').update({ settings: newSettings }).eq('code', room.code);
+    // Preserve pique in settings so it stays synced
+    if (room?.code) await supabase.from('rooms').update({ settings: { ...newSettings, pique: piqueRef.current } }).eq('code', room.code);
+  }, [room]);
+
+  // ── PIQUE (MC writes to DB so all players see it) ─────────
+  const handlePique = useCallback(async (newPique) => {
+    setPique(newPique);
+    if (room?.code) await supabase.from('rooms').update({ settings: { ...settingsRef.current, pique: newPique } }).eq('code', room.code);
   }, [room]);
 
   // ── TRANSFER MC ───────────────────────────────────────────
@@ -1948,7 +1963,7 @@ export default function App() {
           onBack={() => { window.history.pushState(null,'','/'); setScreen('landing'); }}
           onShowBalances={() => setShowBalances(true)}
           onTransferMC={transferMC}
-          pique={pique} onPique={setPique}
+          pique={pique} onPique={handlePique}
           lang={lang} onToggleLang={toggleLang}
           loading={loading}
         />
