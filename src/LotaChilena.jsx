@@ -700,7 +700,7 @@ function LandingView({ onCreate, onJoin, lang, onToggleLang, initialCode = '', l
           <div className="fld">
             <label className="lbl">{t(lang,'yourName')}</label>
             <input className="inp" value={cName} onChange={e => setCName(e.target.value)}
-              placeholder="Ej: Felipe Humberto Camiroaga Fernández" onKeyDown={e => e.key === 'Enter' && cName.trim() && onCreate(cName.trim())} />
+              placeholder="Ej: Felipito Camiroaga" onKeyDown={e => e.key === 'Enter' && cName.trim() && onCreate(cName.trim())} />
           </div>
           <button className="btn btn-gold btn-xl btn-block" disabled={!cName.trim() || loading} onClick={() => onCreate(cName.trim())}>
             {loading ? '⏳' : t(lang,'createBtn')}
@@ -721,7 +721,7 @@ function LandingView({ onCreate, onJoin, lang, onToggleLang, initialCode = '', l
           </div>
           <div className="fld">
             <label className="lbl">{t(lang,'yourName')}</label>
-            <input className="inp" value={jName} onChange={e => setJName(e.target.value)} placeholder="Ej: Felipe Humberto Camiroaga Fernández" />
+            <input className="inp" value={jName} onChange={e => setJName(e.target.value)} placeholder="Ej: Felipito Camiroaga" />
           </div>
           {joinError && <p style={{color:'#E74C3C',fontSize:'.8rem',fontWeight:700,textAlign:'center'}}>{joinError}</p>}
           <button className="btn btn-red btn-xl btn-block"
@@ -947,7 +947,7 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
                 ? `Selecciona ${CARDS_PER_PLAYER - myIdxs.length} cartón(es) más.`
                 : `Select ${CARDS_PER_PLAYER - myIdxs.length} more card(s).`}</p>
             )}
-            <div className="flex fc g12" style={{marginTop:10}}>
+            <div className="flex fc g12" style={{marginTop:10, alignItems: 'center'}}>
               {myIdxs.map(i => (
                 <CartonCard key={i} carton={CARTONES[i]} marked={[]} calledNums={[]} skin={me.skin} readonly />
               ))}
