@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { supabase, supaToPlayer, supaToGame, normalizeName } from './supabase.js';
+import { supabase, supaToPlayer, supaToGame, normalizeName, isOnline } from './supabase.js';
 
 /* ═══════════════════════════════════════════════════════════════
    LOTA CHILENA 🎱 — Chilean Family Bingo
@@ -515,6 +515,13 @@ html,body{height:100%}
 .st-lota{color:#27AE60}
 .cur-prizes{display:flex;flex-direction:column;gap:3px;margin-bottom:16px}
 
+/* ── CONNECTION DOT ── */
+.dot-online{width:9px;height:9px;border-radius:50%;background:#27AE60;border:1.5px solid #120804;flex-shrink:0}
+.dot-offline{width:9px;height:9px;border-radius:50%;background:#E74C3C;border:1.5px solid #120804;flex-shrink:0}
+/* ── PLAYERS STRIP (game view) ── */
+.pl-strip{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;width:100%;max-width:1180px;padding:4px 0}
+.pl-chip{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.05);border:1px solid rgba(212,82,42,.15);border-radius:8px;padding:4px 10px;font-size:.75rem;font-weight:700}
+.pl-av-wrap{position:relative;flex-shrink:0}
 /* ── RESPONSIVE ── */
 @media(max-width:640px){
   .ann-box{padding:26px 32px}
@@ -827,7 +834,11 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
             <div className="panel-title">{t(lang,'playersInRoom')}</div>
             {players.map(p => (
               <div key={p.id} className="p-row">
-                <div className="p-av">{p.name[0].toUpperCase()}</div>
+                <div className="pl-av-wrap">
+                  <div className="p-av">{p.name[0].toUpperCase()}</div>
+                  <div className={isOnline(p) ? 'dot-online' : 'dot-offline'}
+                    style={{position:'absolute',bottom:-1,right:-1}} title={isOnline(p)?(lang==='es'?'Conectado':'Connected'):(lang==='es'?'Desconectado':'Disconnected')} />
+                </div>
                 <span className="p-name">{p.name}{p.id === me.id ? ` (${lang==='es'?'tú':'you'})` : ''}</span>
                 {p.isMC && <span className="p-tag-mc">MC</span>}
                 {pique.enabled && pique.participants.includes(p.id) && (
@@ -1115,6 +1126,34 @@ function AnnView({ ann, onClose }) {
 // ────────────────────────────────────────────────────────────
 // TIE BREAK MODAL
 // ────────────────────────────────────────────────────────────
+// Compact player strip shown in the game view for everyone
+function PlayersStrip({ players, pique, me, lang }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick(n => n + 1), 15000); // refresh dots every 15s
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="pl-strip">
+      {players.map(p => (
+        <div key={p.id} className="pl-chip">
+          <div className="pl-av-wrap">
+            <div className="p-av" style={{width:22,height:22,fontSize:'.6rem',flexShrink:0}}>{p.name[0].toUpperCase()}</div>
+            <div className={isOnline(p) ? 'dot-online' : 'dot-offline'}
+              style={{position:'absolute',bottom:-1,right:-1,width:7,height:7}}
+              title={isOnline(p)?(lang==='es'?'Conectado':'Connected'):(lang==='es'?'Desconectado':'Disconnected')} />
+          </div>
+          <span style={{maxWidth:80,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+            {p.name}{p.id === me?.id ? ` (${lang==='es'?'tú':'you'})` : ''}
+          </span>
+          {p.isMC && <span style={{fontSize:'.58rem',color:'#E8B84B',fontWeight:900}}>MC</span>}
+          {pique?.active && !pique.settled && pique.participants?.includes(p.id) && <span style={{fontSize:'.7rem'}}>⚡</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function TieBreakModal({ tiedPlayers, piqueAmount, onSplit, onKeepDrawing, lang }) {
   const perPlayer = Math.floor(piqueAmount / tiedPlayers.length);
   return (
@@ -1191,6 +1230,9 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
           <LangToggle lang={lang} onToggle={onToggleLang} />
         </div>
       </div>
+
+      {/* ── PLAYERS STRIP ── */}
+      <PlayersStrip players={players} pique={pique} me={me} lang={lang} />
 
       {/* ── BODY ── */}
       <div className="game-body">
@@ -1505,6 +1547,19 @@ export default function App() {
   const urlCode = window.location.pathname.slice(1).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   const initialCode = urlCode.length === 6 ? urlCode : '';
   useEffect(() => { if (initialCode) window.history.replaceState(null, '', '/'); }, [initialCode]);
+
+  // Heartbeat: keep last_seen fresh so others can tell we're connected
+  useEffect(() => {
+    if (!me?.id) return;
+    const ping = async () => {
+      const ts = new Date().toISOString();
+      await supabase.from('players').update({ last_seen: ts }).eq('id', me.id);
+      setPlayers(prev => prev.map(p => p.id === me.id ? { ...p, lastSeen: ts } : p));
+    };
+    ping(); // immediate on join
+    const t = setInterval(ping, 20000);
+    return () => clearInterval(t);
+  }, [me?.id]);
 
   // ── Announcement ──────────────────────────────────────────
   const announce = useCallback((type, msg, val = '', sub = '', dur = 3500) => {

@@ -16,7 +16,14 @@ export const supaToPlayer = (row) => ({
   skin:      row.skin,
   marked:    row.marked    || [],
   balance:   row.balance,
+  lastSeen:  row.last_seen || null,
 });
+
+// Player is online if they updated last_seen within 45s
+export const isOnline = (player) => {
+  if (!player?.lastSeen) return true; // no data yet — assume online
+  return Date.now() - new Date(player.lastSeen).getTime() < 45000;
+};
 
 export const supaToGame = (row) => ({
   id:            row.id,
