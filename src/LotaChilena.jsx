@@ -797,7 +797,7 @@ function LandingView({ onCreate, onJoin, lang, onToggleLang, initialCode = '', l
         </div>
       </div>
 
-      <p className="xs tc" style={{color:'#9A7050'}}>{lang==='es'?'Multijugador en tiempo real · lota.cl':'Real-time multiplayer · lota.cl'}</p>
+      <p className="xs tc" style={{color:'#9A7050'}}>{lang==='es'?'Multijugador en tiempo real · LotaChilena.cl · by Caqui & Rafi':'Real-time multiplayer · LotaChilena.cl · by Caqui & Rafi'}</p>
       </div>{/* end z-index content wrapper */}
     </div>
   );
@@ -1724,7 +1724,13 @@ function StatsTable({ players, stats, lang = 'es' }) {
         </thead>
         <tbody>
           {sorted.map(p => {
-            const st = stats[p.name] || EMPTY_STAT;
+            // Prefer DB-synced per-player stats (visible to everyone) — fall back to local stats for older data
+            const local = stats[p.name] || EMPTY_STAT;
+            const st = {
+              gamesPlayed:  p.gamesPlayed  ?? local.gamesPlayed  ?? 0,
+              totalWagered: p.totalWagered ?? local.totalWagered ?? 0,
+              wins:         p.wins         ?? local.wins         ?? EMPTY_STAT.wins,
+            };
             return (
               <tr key={p.id}>
                 <td>
@@ -2155,11 +2161,15 @@ export default function App() {
         requests: [], log: [], pique_state: piqueForGame, status: 'active',
       });
 
-      // Deduct balances, reset marks
+      // Deduct balances, reset marks, bump session stats (games_played + wagered)
       await Promise.all(players.map(p => {
         let balance = p.balance - settings.apuesta;
         if (pique.enabled && pique.participants.includes(p.id)) balance -= pique.stake;
-        return supabase.from('players').update({ balance, marked: [] }).eq('id', p.id);
+        return supabase.from('players').update({
+          balance, marked: [],
+          games_played:  (p.gamesPlayed  ?? 0) + 1,
+          total_wagered: (p.totalWagered ?? 0) + settings.apuesta,
+        }).eq('id', p.id);
       }));
 
       // Write active pique into rooms.settings so the realtime bounce-back restores active:true, not active:false
@@ -2298,7 +2308,7 @@ export default function App() {
         announce('win', `¡${req.playerName} ${es?'ganó El Pique':'won El Pique'}!`, '', fmtClp(amount), 5500);
         await Promise.all([
           supabase.from('games').update({ pique_state: newPiqueState, requests: newReqs, log: newLog }).eq('id', gameIdRef.current),
-          supabase.from('players').update({ balance: player.balance + amount }).eq('id', req.playerId),
+          supabase.from('players').update({ balance: player.balance + amount, wins: { ...(player.wins||{}), pique: (player.wins?.pique ?? 0) + 1 } }).eq('id', req.playerId),
         ]);
       } else {
         const invEntry = { id: Date.now()+'', ts: tstamp(), msg: `✗ ${req.playerName} — ${es?'sin número cantado en su cartón':'no called number on their card'}`, type:'inv' };
@@ -2340,7 +2350,7 @@ export default function App() {
       announce('win', `¡${req.playerName} ${es?'gana la':'wins'} ${req.type.toUpperCase()}!`, req.type, fmtClp(amt), 5500);
       await Promise.all([
         supabase.from('games').update({ prizes: newPrizes, requests: newReqs, log: newLog }).eq('id', gameIdRef.current),
-        supabase.from('players').update({ balance: player.balance + amt }).eq('id', req.playerId),
+        supabase.from('players').update({ balance: player.balance + amt, wins: { ...(player.wins||{}), [req.type]: (player.wins?.[req.type] ?? 0) + 1 } }).eq('id', req.playerId),
       ]);
     } else {
       // Incorrect claim — broadcast a "shame" announcement to everyone via the log's ann field
@@ -2400,7 +2410,7 @@ export default function App() {
       setPlayers(prev => prev.map(p => p.id === w.id ? { ...p, balance: p.balance + per } : p));
       if (w.id === meRef.current?.id) setMe(m => ({ ...m, balance: m.balance + per }));
       setStats(prev => { const e = prev[w.name]||EMPTY_STAT; return {...prev,[w.name]:{...e,wins:{...e.wins,[type]:(e.wins[type]??0)+1}}}; });
-      await supabase.from('players').update({ balance: w.balance + per }).eq('id', w.id);
+      await supabase.from('players').update({ balance: w.balance + per, wins: { ...(w.wins||{}), [type]: (w.wins?.[type] ?? 0) + 1 } }).eq('id', w.id);
     });
     announce('win', `¡${names} ${es?'gana':'win'} ${label}!`, type==='pique'?'':type, fmtClp(per)+(winners.length>1?(es?' c/u':' each'):''), 5500);
 

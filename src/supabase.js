@@ -13,10 +13,13 @@ export const supaToPlayer = (row) => ({
   name:       row.name,
   isMC:       row.is_mc,
   cartonIdxs: row.carton_idxs || [],
-  skin:       row.skin,
-  marked:     row.marked    || [],
-  balance:    row.balance,
-  lastSeen:   row.last_seen || null,
+  skin:        row.skin,
+  marked:      row.marked    || [],
+  balance:     row.balance,
+  lastSeen:    row.last_seen || null,
+  gamesPlayed:  row.games_played  ?? 0,
+  totalWagered: row.total_wagered ?? 0,
+  wins:         row.wins || { terna: 0, linea: 0, lota: 0, pique: 0 },
 });
 
 // Player is online if they updated last_seen within 45s
