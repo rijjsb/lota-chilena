@@ -184,6 +184,64 @@ const TR = {
   stBalance:      {es:'Saldo',    en:'Balance'},
   // pct warnings
   pctWarn:        {es:'⚠ Los porcentajes deben sumar 100% (actual:', en:'⚠ Percentages must add up to 100% (current:'},
+  // Prize button hints
+  pzTernaHave:    {es:'Tienes 3 en fila ✓',     en:'You have 3 in a row ✓'},
+  pzTernaNeed:    {es:'3 marcas en fila',       en:'3 marks in a row'},
+  pzLineaHave:    {es:'Tienes fila completa ✓', en:'You have a full row ✓'},
+  pzLineaNeed:    {es:'Fila completa',          en:'Full row'},
+  pzLineaFirst:   {es:'Primero la Terna',       en:'Terna first'},
+  pzLotaHave:     {es:'Cartón lleno ✓',         en:'Full card ✓'},
+  pzLotaNeed:     {es:'Cartón completo',        en:'Full card'},
+  pzLotaFirst:    {es:'Primero la Línea',       en:'Línea first'},
+  // Pique button
+  piqSent:        {es:'¡Enviado! Esperando…',           en:'Sent! Waiting…'},
+  piqWaitNum:     {es:'Esperando tu primer número…',    en:'Waiting for your first number…'},
+  piqHaveNum:     {es:'¡Tienes un número! ✓',           en:'You have a number! ✓'},
+  // Misc UI
+  piqueNotEnabled:{es:'El Animador no ha activado El Pique.', en:'The MC hasn\'t enabled El Pique.'},
+  notAllReady:    {es:'Algunos jugadores aún no eligen sus 2 cartones.', en:'Some players haven\'t chosen their 2 cards yet.'},
+  removePlayer:   {es:'Quitar jugador',         en:'Remove player'},
+  connected:      {es:'Conectado',              en:'Connected'},
+  disconnected:   {es:'Desconectado',           en:'Disconnected'},
+  awards:         {es:'Premios',                en:'Awards'},
+  inPique:        {es:'En El Pique',            en:'In El Pique'},
+  you:            {es:'tú',                     en:'you'},
+  // Leave game modal
+  leaveQ:         {es:'¿Salir de la partida?',  en:'Leave the game?'},
+  leaveWarn:      {es:'Si sales como Animador, la partida terminará para todos los jugadores.', en:'If you leave as MC, the game will end for all players.'},
+  leaveYes:       {es:'Sí, terminar partida',   en:'Yes, end game'},
+  leaveNo:        {es:'← No, seguir jugando',   en:'← No, keep playing'},
+  // Remove player modal
+  rmQ:            {es:'¿Quitar a',              en:'Remove'},
+  rmFromRoom:     {es:'de la sala?',            en:'from the room?'},
+  rmNote:         {es:'Sus cartones quedarán libres. Puede volver a entrar con el mismo nombre y elegir cartones de nuevo.', en:'Their cards will be freed. They can rejoin with the same name and pick cards again.'},
+  rmYes:          {es:'Sí, quitar',            en:'Yes, remove'},
+  rmCancel:       {es:'← Cancelar',            en:'← Cancel'},
+  kicked:         {es:'El Animador te quitó de la sala.', en:'The MC removed you from the room.'},
+  // Override modal
+  ovTitle:        {es:'Asignar premios (manual)', en:'Assign prizes (manual)'},
+  ovNote:         {es:'Para jugadores con cartón de papel. Marca uno o varios ganadores (varios = dividen el premio) y asigna. Se anuncia a todos y se valida oficialmente.', en:'For players with paper cards. Select one or more winners (multiple = split) and assign. Announced to everyone and officially recorded.'},
+  ovAssign:       {es:'Asignar',               en:'Assign'},
+  ovSplit:        {es:'dividir',               en:'split'},
+  // Join errors
+  errRoomNotFound:{es:'Sala no encontrada. Revisa el código.', en:'Room not found. Check the code.'},
+  errCreate:      {es:'Error al crear la sala. Intenta de nuevo.', en:'Error creating room. Try again.'},
+  errJoin:        {es:'Error al unirse. Intenta de nuevo.', en:'Error joining. Try again.'},
+  // Carton selection
+  chooseN:        {es:'Elige tus 2 cartones',  en:'Choose your 2 cards'},
+  selectMore:     {es:'Selecciona',            en:'Select'},
+  moreCards:      {es:'cartón(es) más.',       en:'more card(s).'},
+  // Dynamic announcements (per-viewer)
+  winsThe:        {es:'gana la',               en:'wins'},
+  requests:       {es:'Solicita',              en:'Requests'},
+  wonPique:       {es:'ganó El Pique',         en:'won El Pique'},
+  // Split / dividir
+  divide:         {es:'Dividir',               en:'Split'},
+  divideTip:      {es:'Dividir entre los que reclaman', en:'Split among claimants'},
+  // Game log
+  logDrew:        {es:'Salió el',              en:'Drew'},
+  logShouts:      {es:'grita',                 en:'shouts'},
+  logRejected:    {es:'solicitud rechazada',   en:'claim rejected'},
 };
 const t = (lang, key) => TR[key]?.[lang] ?? TR[key]?.es ?? key;
 
@@ -218,12 +276,14 @@ const isValid = (type, carton, marked, called) => {
 
 // ── Multi-carton helpers (each player has 2+ cards) ──
 const CARDS_PER_PLAYER = 2;
-const idxsOf  = p => (p?.cartonIdxs?.length ? p.cartonIdxs : (p?.cartonIdx != null ? [p.cartonIdx] : []));
+const idxsOf  = p => (p?.cartonIdxs || []);
 const cardsOf = p => idxsOf(p).map(i => CARTONES[i]).filter(Boolean);
 const canReqAny  = (type, cartons, marked)         => cartons.some(c => canReq(type, c, marked));
 const isValidAny = (type, cartons, marked, called) => cartons.some(c => isValid(type, c, marked, called));
 const hasHitOnCards = (cartons, called) => called.some(n => cartons.some(c => c.rows.some(row => row.includes(n))));
 const firstIdx = p => Math.min(...idxsOf(p).concat([999])); // for stable sorting
+// Player ordering: MC always first, then alphabetical by name
+const playerSort = (a, b) => (b.isMC === true) - (a.isMC === true) || a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
 // Pick the n highest-numbered available cartons (descending from #50)
 // so the low numbers stay free for people who want to choose them.
 const pickTopCartons = (takenIdxs, n) => {
@@ -348,8 +408,11 @@ html,body{height:100%}
 .cs-wrap{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
 .cs-btn{background:#120804;border:1px solid rgba(212,82,42,.22);color:#FFF3E0;border-radius:7px;padding:5px 10px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;transition:all .15s}
 .cs-btn:hover{border-color:#C94B28}
-.cs-btn.active{background:#C94B28;border-color:#C94B28;color:#fff}
-.cs-btn:disabled{opacity:.55;cursor:not-allowed}
+.cs-btn.cs-free{background:#FFF8F0;border-color:#E0C5A8;color:#4A3728}      /* available — white */
+.cs-btn.cs-free:hover{border-color:#C94B28;background:#fff}
+.cs-btn.cs-taken{background:#2A2622;border-color:rgba(255,255,255,.08);color:#6B5E52}  /* owned by others — grey */
+.cs-btn.active{background:#C94B28;border-color:#C94B28;color:#fff}          /* mine — orange */
+.cs-btn:disabled{cursor:not-allowed}
 .sk-row{display:flex;gap:6px;flex-wrap:wrap}
 .sk-btn{width:44px;height:44px;border-radius:9px;border:2px solid rgba(212,82,42,.2);background:#120804;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;font-size:1.1rem;color:#FFF3E0;font-family:'Nunito',sans-serif;font-weight:900}
 .sk-btn.active{border-color:#E8B84B;background:rgba(232,184,75,.12)}
@@ -539,6 +602,8 @@ html,body{height:100%}
 .dot-offline{width:9px;height:9px;border-radius:50%;background:#E74C3C;border:1.5px solid #120804;flex-shrink:0}
 /* ── PLAYERS PANEL (game view left column) ── */
 .pl-av-wrap{position:relative;flex-shrink:0}
+.rm-x{position:absolute;top:-5px;right:-5px;width:15px;height:15px;border-radius:50%;background:#C0392B;color:#fff;border:1.5px solid #120804;font-size:.7rem;line-height:1;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:'Nunito',sans-serif;transition:background .15s}
+.rm-x:hover{background:#E74C3C}
 /* ── RESPONSIVE ── */
 @media(max-width:640px){
   .ann-box{padding:26px 32px}
@@ -812,8 +877,9 @@ function TransferModal({ targetName, onConfirm, onCancel, lang }) {
 // ────────────────────────────────────────────────────────────
 // LOBBY
 // ────────────────────────────────────────────────────────────
-function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, onStart, onBack, onShowBalances, onTransferMC, pique, onPique, lang, onToggleLang, loading = false }) {
+function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, onStart, onBack, onShowBalances, onTransferMC, onRemovePlayer, pique, onPique, lang, onToggleLang, loading = false }) {
   const [transferTarget, setTransferTarget] = useState(null);
+  const [removeTarget, setRemoveTarget]     = useState(null);
   const [showShare, setShowShare]           = useState(false);
   const taken  = players.filter(p => p.id !== me.id).flatMap(p => idxsOf(p));
   const myIdxs = idxsOf(me);
@@ -833,7 +899,7 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
     <div className="lobby">
       <div className="lobby-hdr">
         <div className="code-pill">
-          <span className="code-lbl">Sala</span>
+          <span className="code-lbl">{lang==='es'?'Sala':'Room'}</span>
           <span className="code-val">{room.code}</span>
           <span className="code-lbl">· {players.length} {lang==='es'?'jugadores':'players'}</span>
         </div>
@@ -853,17 +919,21 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
         <div className="lb-left">
           <div className="panel">
             <div className="panel-title">{t(lang,'playersInRoom')}</div>
-            {[...players].sort((a,b) => firstIdx(a) - firstIdx(b)).map(p => (
+            {[...players].sort(playerSort).map(p => (
               <div key={p.id} className="p-row">
                 <div className="pl-av-wrap">
                   <div className="p-av">{p.name[0].toUpperCase()}</div>
                   <div className={isOnline(p) ? 'dot-online' : 'dot-offline'}
                     style={{position:'absolute',bottom:-1,right:-1}} title={isOnline(p)?(lang==='es'?'Conectado':'Connected'):(lang==='es'?'Desconectado':'Disconnected')} />
+                  {me.isMC && p.id !== me.id && (
+                    <button className="rm-x" title={lang==='es'?'Quitar jugador':'Remove player'}
+                      onClick={() => setRemoveTarget(p)}>×</button>
+                  )}
                 </div>
                 <span className="p-name">{p.name}{p.id === me.id ? ` (${lang==='es'?'tú':'you'})` : ''}</span>
                 {p.isMC && <span className="p-tag-mc">MC</span>}
                 {pique.enabled && pique.participants.includes(p.id) && (
-                  <span title="En El Pique" style={{fontSize:'.8rem'}}>⚡</span>
+                  <span title={t(lang,'inPique')} style={{fontSize:'.8rem'}}>⚡</span>
                 )}
                 <span className="p-tag-ct">{idxsOf(p).map(i => `#${CARTONES[i].id}`).join(' ')}</span>
                 {me.isMC && !p.isMC && (
@@ -931,11 +1001,13 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
             </div>
             <div className="cs-wrap">
               {CARTONES.map((c, i) => {
-                const mine = myIdxs.includes(i);
-                const full = myIdxs.length >= CARDS_PER_PLAYER;
+                const mine    = myIdxs.includes(i);
+                const byOther = taken.includes(i);
+                // mine = orange, owned by others = grey/disabled, free = white
+                const cls = mine ? 'cs-btn active' : byOther ? 'cs-btn cs-taken' : 'cs-btn cs-free';
                 return (
-                  <button key={c.id} className={`cs-btn${mine ? ' active' : ''}`}
-                    disabled={taken.includes(i) || (full && !mine)}
+                  <button key={c.id} className={cls}
+                    disabled={byOther}
                     onClick={() => onCarton(i)}>
                     #{c.id}
                   </button>
@@ -1053,6 +1125,11 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
           onCancel={() => setTransferTarget(null)}
         />
       )}
+      {removeTarget && (
+        <RemovePlayerModal player={removeTarget} lang={lang}
+          onConfirm={() => { onRemovePlayer(removeTarget.id); setRemoveTarget(null); }}
+          onCancel={() => setRemoveTarget(null)} />
+      )}
       {showShare && (
         <ShareModal room={room} lang={lang} onClose={() => setShowShare(false)} />
       )}
@@ -1115,7 +1192,7 @@ function SnoopModal({ players, game, onClose, onValidate, onReject, lang }) {
 
           {/* All player cards */}
           <div className="snoop-grid">
-            {players.map(p => {
+            {[...players].sort(playerSort).map(p => {
               const cards = cardsOf(p);
               const reqs = reqsByPlayer[p.id] || [];
               const correctMarks = p.marked.filter(n => game.calledNumbers.includes(n)).length;
@@ -1185,7 +1262,7 @@ function AnnView({ ann, onClose }) {
 // TIE BREAK MODAL
 // ────────────────────────────────────────────────────────────
 // Compact player strip shown in the game view for everyone
-function PlayersStrip({ players, pique, me, lang }) {
+function PlayersStrip({ players, pique, me, lang, onRemove }) {
   const [, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick(n => n + 1), 15000);
@@ -1194,19 +1271,23 @@ function PlayersStrip({ players, pique, me, lang }) {
   return (
     <div className="panel" style={{width:230,flexShrink:0,alignSelf:'flex-start'}}>
       <div className="panel-title">{lang==='es'?'Jugadores en sala':'Players'}</div>
-      {[...players].sort((a,b) => firstIdx(a) - firstIdx(b)).map(p => (
+      {[...players].sort(playerSort).map(p => (
         <div key={p.id} className="p-row">
           <div className="pl-av-wrap">
             <div className="p-av">{p.name[0].toUpperCase()}</div>
             <div className={isOnline(p) ? 'dot-online' : 'dot-offline'}
               style={{position:'absolute',bottom:-1,right:-1}}
               title={isOnline(p)?(lang==='es'?'Conectado':'Connected'):(lang==='es'?'Desconectado':'Disconnected')} />
+            {me?.isMC && p.id !== me.id && (
+              <button className="rm-x" title={lang==='es'?'Quitar jugador':'Remove player'}
+                onClick={() => onRemove(p)}>×</button>
+            )}
           </div>
           <span className="p-name">
             {p.name}{p.id === me?.id ? ` (${lang==='es'?'tú':'you'})` : ''}
           </span>
           {p.isMC && <span className="p-tag-mc">MC</span>}
-          {pique?.enabled && pique.participants?.includes(p.id) && <span title="En El Pique" style={{fontSize:'.75rem'}}>⚡</span>}
+          {pique?.enabled && pique.participants?.includes(p.id) && <span title={t(lang,'inPique')} style={{fontSize:'.75rem'}}>⚡</span>}
           <span className="p-tag-ct">{idxsOf(p).map(i => `#${CARTONES[i].id}`).join(' ')}</span>
         </div>
       ))}
@@ -1241,6 +1322,89 @@ function LeaveGameModal({ onConfirm, onCancel, lang }) {
   );
 }
 
+// Confirm before kicking a player from the room
+function RemovePlayerModal({ player, onConfirm, onCancel, lang }) {
+  return (
+    <div className="modal-bg" onClick={onCancel}>
+      <div className="modal-box" style={{maxWidth:400}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-hdr"><h2>🗑️ {lang==='es'?'Quitar jugador':'Remove player'}</h2></div>
+        <div className="modal-body">
+          <p style={{fontWeight:700,fontSize:'1rem',lineHeight:1.5}}>
+            {lang==='es' ? '¿Quitar a ' : 'Remove '}<span style={{color:'#E8B84B'}}>{player.name}</span>{lang==='es'?' de la sala?':' from the room?'}
+          </p>
+          <p className="xs dim mt8">{lang==='es'
+            ? 'Sus cartones quedarán libres. Puede volver a entrar con el mismo nombre y elegir cartones de nuevo.'
+            : 'Their cards will be freed. They can rejoin with the same name and pick cards again.'}</p>
+          <div className="flex g10 mt12" style={{justifyContent:'space-between',alignItems:'center'}}>
+            <button className="btn btn-danger btn-sm" onClick={onConfirm}>{lang==='es'?'Sí, quitar':'Yes, remove'}</button>
+            <button className="btn btn-gold btn-xl" onClick={onCancel}>{lang==='es'?'← Cancelar':'← Cancel'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Manual override window — MC assigns prizes directly (for paper-card players)
+function OverrideModal({ players, game, pique, settings, onAward, onClose, lang }) {
+  const PRIZES = ['terna','linea','lota'].concat(pique.active && !pique.settled ? ['pique'] : []);
+  const COLORS = { terna:'#E8B84B', linea:'#C94B28', lota:'#27AE60', pique:'#BE8EE8' };
+  const [sel, setSel] = useState({ terna:[], linea:[], lota:[], pique:[] });
+  const total = calcPot(players.length, settings.apuesta);
+  const amountFor = (type) => type==='pique'
+    ? (pique.participants?.length || 0) * pique.stake
+    : calcPrize(total, { terna:settings.ternaPct, linea:settings.lineaPct, lota:settings.lotaPct }[type]);
+
+  const toggle = (type, id) => setSel(s => ({ ...s, [type]: s[type].includes(id) ? s[type].filter(x=>x!==id) : [...s[type], id] }));
+  const winnerOf = (type) => type==='pique' ? (pique.settled ? pique.winner : null) : game.prizes[type];
+
+  return (
+    <div className="modal-bg" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{maxWidth:680}}>
+        <div className="modal-hdr">
+          <h2>🏆 {lang==='es'?'Asignar premios (manual)':'Assign prizes (manual)'}</h2>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>{t(lang,'closeBnt')}</button>
+        </div>
+        <div className="modal-body" style={{gap:14}}>
+          <p className="xs dim">{lang==='es'
+            ? 'Para jugadores con cartón de papel. Marca uno o varios ganadores (varios = dividen el premio) y asigna. Se anuncia a todos y se valida oficialmente.'
+            : 'For players with paper cards. Select one or more winners (multiple = split) and assign. Announced to everyone and officially recorded.'}</p>
+          {PRIZES.map(type => {
+            const won = winnerOf(type);
+            return (
+              <div key={type} className="panel" style={{padding:12}}>
+                <div className="flex jb ac mb8">
+                  <span className="fw9" style={{color:COLORS[type],textTransform:'uppercase',letterSpacing:'.05em'}}>
+                    {type==='pique'?'⚡ Pique':type} · {fmtClp(amountFor(type))}
+                  </span>
+                  {won
+                    ? <span className="chip chip-ok">✓ {won.playerName}</span>
+                    : <button className="btn btn-sm" disabled={!sel[type].length}
+                        style={{background:COLORS[type],color:'#1A0E06',border:'none',borderRadius:6,fontWeight:800,opacity:sel[type].length?1:.4,cursor:sel[type].length?'pointer':'not-allowed'}}
+                        onClick={() => { onAward(type, sel[type]); setSel(s=>({...s,[type]:[]})); }}>
+                        {lang==='es'?'Asignar':'Assign'}{sel[type].length>1?` (${lang==='es'?'dividir':'split'} ${sel[type].length})`:''}
+                      </button>}
+                </div>
+                {!won && (
+                  <div className="flex g6" style={{flexWrap:'wrap'}}>
+                    {[...players].sort(playerSort).map(p => (
+                      <button key={p.id} onClick={() => toggle(type, p.id)}
+                        className={`cs-btn${sel[type].includes(p.id)?' active':' cs-free'}`}
+                        style={{fontSize:'.74rem'}}>
+                        {p.name} <span style={{opacity:.6}}>{idxsOf(p).map(i=>`#${CARTONES[i].id}`).join(' ')}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TieBreakModal({ tiedPlayers, piqueAmount, onSplit, onKeepDrawing, lang }) {
   const perPlayer = Math.floor(piqueAmount / tiedPlayers.length);
   return (
@@ -1269,8 +1433,10 @@ function TieBreakModal({ tiedPlayers, piqueAmount, onSplit, onKeepDrawing, lang 
   );
 }
 
-function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, onClaimPique, onValidate, onReject, showSnoop, setShowSnoop, ballKey, onLeave, onSettle, onShowBalances, pique, piqueAction, lang, onToggleLang }) {
+function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, onClaimPique, onValidate, onReject, onAwardPrize, onRemovePlayer, showSnoop, setShowSnoop, ballKey, onLeave, onSettle, onShowBalances, pique, piqueAction, lang, onToggleLang }) {
   const [showLeaveWarn, setShowLeaveWarn] = useState(false);
+  const [showOverride, setShowOverride]   = useState(false);
+  const [removeTarget, setRemoveTarget]   = useState(null);
   const myCards = cardsOf(me);
   const total = calcPot(players.length, settings.apuesta);
   const { terna, linea, lota } = game.prizes;
@@ -1331,7 +1497,7 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
       {/* ── BODY ── */}
       <div className="game-body">
         {/* LEFT: players panel */}
-        <PlayersStrip players={players} pique={pique} me={me} lang={lang} />
+        <PlayersStrip players={players} pique={pique} me={me} lang={lang} onRemove={setRemoveTarget} />
 
         {/* CENTER: player carton + prize buttons */}
         <div className="game-main">
@@ -1361,16 +1527,14 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
                 disabled={pique.settled || pendingPiqReq || !canClaimPiq}
                 onClick={onClaimPique}>
                 {pique.settled
-                  ? `✓ ⚡ ${lang==='es'?'Pique':'Pique'} — ${pique.winner?.playerName}`
+                  ? `✓ ⚡ Pique — ${pique.winner?.playerName}`
                   : pendingPiqReq
-                    ? `⚡ ${lang==='es'?'¡Enviado! Esperando…':'Sent! Waiting…'}`
+                    ? `⚡ ${t(lang,'piqSent')}`
                     : '⚡ ¡PIQUE!'}
                 <span className="pz-sub">
                   {pique.settled
                     ? fmtClp(pique.winner?.amount ?? 0)
-                    : canClaimPiq
-                      ? lang==='es' ? '¡Tienes un número! ✓' : 'You have a number! ✓'
-                      : lang==='es' ? 'Esperando tu primer número…' : 'Waiting for your first number…'}
+                    : canClaimPiq ? t(lang,'piqHaveNum') : t(lang,'piqWaitNum')}
                 </span>
               </button>
             </div>
@@ -1382,19 +1546,19 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
               disabled={terna ? true : !canTerna}
               onClick={() => onClaim('terna')}>
               {terna ? '✓ Terna' : '¡TERNA!'}
-              <span className="pz-sub">{terna ? terna.playerName : canTerna ? 'Tienes 3 en fila ✓' : '3 marcas en fila'}</span>
+              <span className="pz-sub">{terna ? terna.playerName : canTerna ? t(lang,'pzTernaHave') : t(lang,'pzTernaNeed')}</span>
             </button>
             <button className={`pz-btn pz-linea${linea ? ' pz-won' : ''}`}
               disabled={linea ? true : !canLinea}
               onClick={() => onClaim('linea')}>
               {linea ? '✓ Línea' : '¡LÍNEA!'}
-              <span className="pz-sub">{linea ? linea.playerName : terna ? (canLinea ? 'Tienes fila completa ✓' : 'Fila completa') : 'Primero la Terna'}</span>
+              <span className="pz-sub">{linea ? linea.playerName : terna ? (canLinea ? t(lang,'pzLineaHave') : t(lang,'pzLineaNeed')) : t(lang,'pzLineaFirst')}</span>
             </button>
             <button className={`pz-btn pz-lota${lota ? ' pz-won' : ''}`}
               disabled={lota ? true : !canLota}
               onClick={() => onClaim('lota')}>
               {lota ? '✓ Lota' : '¡LOTA!'}
-              <span className="pz-sub">{lota ? lota.playerName : linea ? (canLota ? 'Cartón lleno ✓' : 'Cartón completo') : 'Primero la Línea'}</span>
+              <span className="pz-sub">{lota ? lota.playerName : linea ? (canLota ? t(lang,'pzLotaHave') : t(lang,'pzLotaNeed')) : t(lang,'pzLotaFirst')}</span>
             </button>
           </div>
         </div>
@@ -1417,8 +1581,13 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
               <div className="divline" />
               <div className="stat-row">
                 <span style={{fontSize:'.72rem',color:'#C8A878',fontWeight:700}}>{90 - game.calledNumbers.length} {t(lang,'remaining')}</span>
-                <button className="btn btn-ghost btn-sm" onClick={() => setShowSnoop(true)}>
+              </div>
+              <div className="flex g6 mt8">
+                <button className="btn btn-ghost btn-sm" style={{flex:1}} onClick={() => setShowSnoop(true)}>
                   👁 {t(lang,'gamePlayers')} {game.requests.length > 0 && `(${game.requests.length} ⚡)`}
+                </button>
+                <button className="btn btn-ghost btn-sm" style={{flex:1}} onClick={() => setShowOverride(true)}>
+                  🏆 {lang==='es'?'Premios':'Awards'}
                 </button>
               </div>
             </div>
@@ -1435,14 +1604,17 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
                         {e.type === 'req' && e.reqId && (() => {
                           const thisReq = game.requests.find(r => r.id === e.reqId);
                           if (!thisReq) return null; // already handled — no buttons
-                          const isPique = thisReq.type === 'pique';
-                          const otherPiqueReqs = isPique ? game.requests.filter(r => r.type === 'pique' && r.id !== e.reqId) : [];
+                          const sameType = game.requests.filter(r => r.type === thisReq.type);
+                          const others   = sameType.filter(r => r.id !== e.reqId);
+                          const canSplit = others.length > 0 && (thisReq.type === 'pique' ? !pique.settled : true);
+                          const splitIds = [...others.map(r=>r.playerId), thisReq.playerId];
                           return (
                             <>
                               <button className="btn btn-green btn-sm" onClick={() => onValidate(e.reqId)} title={lang==='es'?'Validar':'Validate'}>✓</button>
-                              {isPique && otherPiqueReqs.length > 0 && !pique.settled && (
+                              {canSplit && (
                                 <button className="btn btn-sm" style={{fontSize:'.62rem',padding:'3px 7px',background:'#9B59B6',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontWeight:800}}
-                                  onClick={() => piqueAction('split', [...otherPiqueReqs.map(r=>r.playerId), thisReq.playerId])}>
+                                  title={lang==='es'?'Dividir entre los que reclaman':'Split among claimants'}
+                                  onClick={() => thisReq.type === 'pique' ? piqueAction('split', splitIds) : onAwardPrize(thisReq.type, splitIds)}>
                                   {lang==='es'?'Dividir':'Split'}
                                 </button>
                               )}
@@ -1498,6 +1670,20 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
         <LeaveGameModal lang={lang}
           onConfirm={() => { setShowLeaveWarn(false); onLeave(); }}
           onCancel={() => setShowLeaveWarn(false)} />
+      )}
+
+      {/* Manual override window (MC) */}
+      {showOverride && (
+        <OverrideModal players={players} game={game} pique={pique} settings={settings} lang={lang}
+          onAward={(type, ids) => onAwardPrize(type, ids)}
+          onClose={() => setShowOverride(false)} />
+      )}
+
+      {/* Remove player confirm (MC) */}
+      {removeTarget && (
+        <RemovePlayerModal player={removeTarget} lang={lang}
+          onConfirm={() => { onRemovePlayer(removeTarget.id); setRemoveTarget(null); }}
+          onCancel={() => setRemoveTarget(null)} />
       )}
 
       {/* Tie Break Modal */}
@@ -1737,6 +1923,13 @@ export default function App() {
             }
           } else if (payload.eventType === 'DELETE') {
             setPlayers(prev => prev.filter(x => x.id !== payload.old.id));
+            // If I was the one removed, send me back to the landing screen
+            if (meRef.current && payload.old.id === meRef.current.id) {
+              window.history.pushState(null, '', '/');
+              setScreen('landing');
+              setRoom(null); setMe(null); setGame(INIT_GAME); setPique(INIT_PIQUE);
+              setJoinError(langRef.current === 'es' ? 'El Animador te quitó de la sala.' : 'The MC removed you from the room.');
+            }
           }
         })
 
@@ -1755,14 +1948,19 @@ export default function App() {
             }
             ['terna','linea','lota'].forEach(type => {
               if (newGame.prizes[type] && !prevGame.prizes[type]) {
-                announce('win', `¡${newGame.prizes[type].playerName} gana la ${type.toUpperCase()}!`, type, fmtClp(newGame.prizes[type].amount), 5500);
+                announce('win', `¡${newGame.prizes[type].playerName} ${t(langRef.current,'winsThe')} ${type.toUpperCase()}!`, type, fmtClp(newGame.prizes[type].amount), 5500);
               }
             });
             // New request from another player
             newGame.requests.forEach(req => {
               if (!prevGame.requests.find(r => r.id === req.id) && req.playerId !== meRef.current?.id) {
-                announce('request', `¡${req.playerName}!`, req.type, `Solicita ${req.type.toUpperCase()}`, 3000);
+                announce('request', `¡${req.playerName}!`, req.type, `${t(langRef.current,'requests')} ${req.type.toUpperCase()}`, 3000);
               }
+            });
+            // Broadcast log entries carrying an announcement (e.g. incorrect-claim "shame")
+            const prevIds = new Set(prevGame.log.map(e => e.id));
+            newGame.log.forEach(e => {
+              if (e.ann && !prevIds.has(e.id)) announce(...e.ann);
             });
           }
 
@@ -1888,18 +2086,24 @@ export default function App() {
     finally { setLoading(false); }
   }, [lang]);
 
-  // ── SELECT CARTON (toggle within my set of CARDS_PER_PLAYER) ──
+  // ── SELECT CARTON ─────────────────────────────────────────
+  // Cards are kept in selection order [oldest … newest]. Defaults are
+  // [#highest, #lower] so the highest is evicted first when overwriting.
+  // - click your own (orange) card → deselect it
+  // - click a free (white) card when not full → add it
+  // - click a free card when full → evict the OLDEST, append the new one
+  // - click a card owned by someone else (grey) → ignored
   const selectCarton = useCallback(async (idx) => {
     const takenByOthers = players.filter(p => p.id !== me.id).flatMap(p => idxsOf(p));
     if (takenByOthers.includes(idx)) return;
     const mine = idxsOf(me);
     let next;
     if (mine.includes(idx)) {
-      next = mine.filter(i => i !== idx);            // deselect
-    } else if (mine.length >= CARDS_PER_PLAYER) {
-      return;                                        // already full
+      next = mine.filter(i => i !== idx);            // deselect own
+    } else if (mine.length < CARDS_PER_PLAYER) {
+      next = [...mine, idx];                          // add (newest last)
     } else {
-      next = [...mine, idx].sort((a,b) => a - b);    // add
+      next = [...mine.slice(1), idx];                 // full → drop oldest, append new
     }
     setMe(prev => ({ ...prev, cartonIdxs: next, marked: [] }));
     setPlayers(prev => prev.map(p => p.id === me.id ? { ...p, cartonIdxs: next, marked: [] } : p));
@@ -1991,7 +2195,7 @@ export default function App() {
     const num = avail[Math.floor(Math.random() * avail.length)];
 
     const newCalled = [...game.calledNumbers, num];
-    const entry = { id: Date.now() + '', ts: tstamp(), msg: `Salió el ${num}`, type: 'draw' };
+    const entry = { id: Date.now() + '', ts: tstamp(), msg: `${t(langRef.current,'logDrew')} ${num}`, type: 'draw' };
     const newLog = [entry, ...game.log];
 
     // MC: update local state immediately for responsiveness
@@ -2028,7 +2232,7 @@ export default function App() {
 
     const reqId = Date.now() + '';
     const req   = { id: reqId, playerId: me.id, playerName: me.name, type: 'pique', ts: tstamp() };
-    const entry = { id: reqId, ts: tstamp(), msg: `${me.name} grita ⚡ ¡PIQUE!`, type: 'req', reqId };
+    const entry = { id: reqId, ts: tstamp(), msg: `${me.name} ${t(langRef.current,'logShouts')} ⚡ ¡PIQUE!`, type: 'req', reqId };
     const newRequests = [...game.requests, req];
     const newLog      = [entry, ...game.log];
 
@@ -2047,7 +2251,7 @@ export default function App() {
 
     const reqId = Date.now() + '';
     const req   = { id: reqId, playerId: me.id, playerName: me.name, type, ts: tstamp() };
-    const entry = { id: reqId, ts: tstamp(), msg: `${me.name} grita ¡${type.toUpperCase()}!`, type: 'req', reqId };
+    const entry = { id: reqId, ts: tstamp(), msg: `${me.name} ${t(langRef.current,'logShouts')} ¡${type.toUpperCase()}!`, type: 'req', reqId };
     const newRequests = [...game.requests, req];
     const newLog      = [entry, ...game.log];
 
@@ -2139,10 +2343,14 @@ export default function App() {
         supabase.from('players').update({ balance: player.balance + amt }).eq('id', req.playerId),
       ]);
     } else {
-      const invEntry = { id: Date.now()+'', ts: tstamp(), msg: `✗ ${es?'Solicitud inválida de':'Invalid claim from'} ${req.playerName}`, type:'inv' };
+      // Incorrect claim — broadcast a "shame" announcement to everyone via the log's ann field
+      const shameTitle = `¡Incorrecto, ${req.playerName}!`;
+      const shameSub   = es ? `Reclamó ${req.type.toUpperCase()} sin tenerla` : `Claimed ${req.type.toUpperCase()} without having it`;
+      const invEntry = { id: Date.now()+'', ts: tstamp(), msg: `✗ ${es?'Solicitud inválida de':'Invalid claim from'} ${req.playerName} (${req.type.toUpperCase()})`, type:'inv',
+        ann: ['invalid', shameTitle, '', shameSub, 3500] };
       const newLog = [invEntry, ...game.log];
       setGame(prev => ({ ...prev, requests: newReqs, log: newLog }));
-      announce('invalid', `¡Incorrecto, ${req.playerName}!`, '', es?'Las marcas no coinciden con los cantados':'Marks don\'t match called numbers', 3000);
+      announce('invalid', shameTitle, '', shameSub, 3500);
       await supabase.from('games').update({ requests: newReqs, log: newLog }).eq('id', gameIdRef.current);
     }
   }, [game, players, me, settings, announce]);
@@ -2151,13 +2359,70 @@ export default function App() {
   const rejectRequest = useCallback(async (reqId) => {
     const req  = game.requests.find(r => r.id === reqId);
     if (!req) return;
-    const entry   = { id: Date.now()+'', ts: tstamp(), msg: `✗ ${req.playerName} — solicitud rechazada`, type:'inv' };
+    const entry   = { id: Date.now()+'', ts: tstamp(), msg: `✗ ${req.playerName} — ${t(langRef.current,'logRejected')}`, type:'inv' };
     const newReqs = game.requests.filter(r => r.id !== reqId);
     const newLog  = [entry, ...game.log];
     setGame(prev => ({ ...prev, requests: newReqs, log: newLog }));
     announce('invalid', '¡Rechazado!', '', `${req.playerName} — ${req.type.toUpperCase()}`, 2500);
     await supabase.from('games').update({ requests: newReqs, log: newLog }).eq('id', gameIdRef.current);
   }, [game, announce]);
+
+  // ── AWARD PRIZE (manual / split — MC authority, no digital-mark check) ──
+  // Used by the "Dividir" log buttons and the manual-override window.
+  // playerIds: one winner, or several to split the prize equally.
+  const awardPrize = useCallback(async (type, playerIds) => {
+    if (!playerIds.length) return;
+    const es = langRef.current === 'es';
+    const g  = gameRef.current;
+    const winners = playerIds.map(id => playersRef.current.find(p => p.id === id)).filter(Boolean);
+    if (!winners.length) return;
+    const names = winners.map(w => w.name).join(es ? ' y ' : ' & ');
+    const label = type === 'pique' ? 'PIQUE' : type.toUpperCase();
+
+    // Prize amount
+    let amount;
+    if (type === 'pique') {
+      const pq = piqueRef.current;
+      amount = (pq.participants?.length || winners.length) * pq.stake;
+    } else {
+      const total = calcPot(playersRef.current.length, settingsRef.current.apuesta);
+      const pctMap = { terna: settingsRef.current.ternaPct, linea: settingsRef.current.lineaPct, lota: settingsRef.current.lotaPct };
+      amount = calcPrize(total, pctMap[type]);
+    }
+    const per = Math.floor(amount / winners.length);
+    const splitNote = winners.length > 1 ? (es ? ` (${fmtClp(per)} c/u)` : ` (${fmtClp(per)} each)`) : '';
+    const logEntry = { id: Date.now()+'', ts: tstamp(), msg: `✓ ${names} ${es?'gana':'win'} ${label} — ${fmtClp(amount)}${splitNote}`, type:'win' };
+    const newReqs  = g.requests.filter(r => r.type !== type);
+    const newLog   = [logEntry, ...g.log];
+
+    // Credit balances + stats + DB
+    winners.forEach(async w => {
+      setPlayers(prev => prev.map(p => p.id === w.id ? { ...p, balance: p.balance + per } : p));
+      if (w.id === meRef.current?.id) setMe(m => ({ ...m, balance: m.balance + per }));
+      setStats(prev => { const e = prev[w.name]||EMPTY_STAT; return {...prev,[w.name]:{...e,wins:{...e.wins,[type]:(e.wins[type]??0)+1}}}; });
+      await supabase.from('players').update({ balance: w.balance + per }).eq('id', w.id);
+    });
+    announce('win', `¡${names} ${es?'gana':'win'} ${label}!`, type==='pique'?'':type, fmtClp(per)+(winners.length>1?(es?' c/u':' each'):''), 5500);
+
+    if (type === 'pique') {
+      const pq = piqueRef.current;
+      const newPs = { ...pq, settled:true, active:false, tied:[], winner:{ playerName:names, amount } };
+      setPique(newPs);
+      setGame(prev => ({ ...prev, requests:newReqs, log:newLog }));
+      await supabase.from('games').update({ pique_state:newPs, requests:newReqs, log:newLog }).eq('id', gameIdRef.current);
+    } else {
+      const winnerObj = { playerId: playerIds[0], playerName: names, amount, split: winners.length>1 };
+      const newPrizes = { ...g.prizes, [type]: winnerObj };
+      setGame(prev => ({ ...prev, prizes:newPrizes, requests:newReqs, log:newLog }));
+      await supabase.from('games').update({ prizes:newPrizes, requests:newReqs, log:newLog }).eq('id', gameIdRef.current);
+    }
+  }, [announce]);
+
+  // ── REMOVE PLAYER (MC kicks an inactive player) ──────────
+  const removePlayer = useCallback(async (playerId) => {
+    setPlayers(prev => prev.filter(p => p.id !== playerId));
+    await supabase.from('players').delete().eq('id', playerId);
+  }, []);
 
   // ── PIQUE TIE ACTION ──────────────────────────────────────
   const piqueAction = useCallback(async (action, splitIds = null) => {
@@ -2248,6 +2513,7 @@ export default function App() {
           onBack={() => { window.history.pushState(null,'','/'); setScreen('landing'); }}
           onShowBalances={() => setShowBalances(true)}
           onTransferMC={transferMC}
+          onRemovePlayer={removePlayer}
           pique={pique} onPique={handlePique}
           lang={lang} onToggleLang={toggleLang}
           loading={loading}
@@ -2263,6 +2529,8 @@ export default function App() {
           onClaimPique={claimPique}
           onValidate={validateWin}
           onReject={rejectRequest}
+          onAwardPrize={awardPrize}
+          onRemovePlayer={removePlayer}
           showSnoop={snoop} setShowSnoop={setSnoop}
           ballKey={ballKey}
           onLeave={leaveToLobby}

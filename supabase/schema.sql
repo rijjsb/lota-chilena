@@ -60,3 +60,9 @@ create index if not exists idx_games_room_status   on public.games(room_code, st
 alter publication supabase_realtime add table public.rooms;
 alter publication supabase_realtime add table public.players;
 alter publication supabase_realtime add table public.games;
+
+-- Full replica identity so DELETE realtime events include all columns
+-- (needed for room_code filters to match on player removal).
+alter table public.rooms   replica identity full;
+alter table public.players replica identity full;
+alter table public.games   replica identity full;
