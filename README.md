@@ -10,7 +10,7 @@ Made by **Caqui & Rafi**.
 
 ## What is Lota?
 
-Lota is the Chilean version of bingo: **90 numbers** and **50 pre-defined cartones** (3×9 cards, 5 numbers per row). Players mark their own cards as the MC (Animador) calls numbers. Prizes are sequential:
+Lota is the Chilean version of bingo: **90 numbers** and **48 pre-defined cartones** (3×9 cards, 5 numbers per row) matching the real physical cards. Players mark their own cards as the MC (Animador) calls numbers. Prizes are sequential:
 
 | Prize | Win condition |
 |-------|---------------|
