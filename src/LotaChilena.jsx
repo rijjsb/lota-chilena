@@ -284,11 +284,11 @@ html,body{height:100%}
 
 /* ── BUTTONS ── */
 .btn{padding:11px 22px;border-radius:10px;border:none;font-family:'Nunito',sans-serif;font-weight:800;cursor:pointer;transition:all .18s;font-size:.93rem;display:inline-flex;align-items:center;justify-content:center;gap:6px;letter-spacing:.02em}
-.btn:disabled{opacity:.55;cursor:not-allowed!important;transform:none!important;pointer-events:none}
+.btn:disabled{opacity:.72;cursor:not-allowed!important;transform:none!important;pointer-events:none}
 .btn-gold{background:#E8B84B;color:#2C1810}
 .btn-gold:hover{background:#F5CC70;transform:translateY(-1px)}
-.btn-red{background:#E06840;color:#fff}
-.btn-red:hover{background:#E05C38;transform:translateY(-1px)}
+.btn-red{background:#D94F28;color:#fff}
+.btn-red:hover{background:#E86038;transform:translateY(-1px)}
 .btn-ghost{background:transparent;color:#BFA080;border:1px solid rgba(212,82,42,.28)}
 .btn-ghost:hover{border-color:#C94B28;color:#C94B28}
 .btn-green{background:#27AE60;color:#fff}
