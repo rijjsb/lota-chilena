@@ -70,9 +70,9 @@ const SKINS = [
   //{id:'x',      label:'✕',        img:null},
   {id:'poroto', label:'Poroto',   img:'/skins/Poroto1.jpg', fit:'contain'},
   {id:'peso',   label:'$1',       img:'/skins/peso1a.jpg'},
-  {id:'peso',   label:'$1 Bernado',       img:'/skins/Peso1b.jpg'},
+  {id:'pesob',   label:'$1 Bernado',       img:'/skins/Peso1b.jpg'},
   {id:'peso5',  label:'$5',       img:'/skins/peso5a.jpg'},
-  {id:'peso5',  label:'$5 Berardo',       img:'/skins/peso5b.jpg'},
+  {id:'peso5b',  label:'$5 Berardo',       img:'/skins/peso5b.jpg'},
   {id:'lucas',  label:'20 Lucas', img:'/skins/20lucas.jpg', fit:'contain'},
 ];
 
@@ -86,8 +86,8 @@ const DEMO_PLAYERS = [
 
 const COL_RANGES = ['1-9','10-19','20-29','30-39','40-49','50-59','60-69','70-79','80-90'];
 
-const INIT_SETTINGS = {apuesta:1000,ternaPct:10,lineaPct:25,lotaPct:65,currency:'CLP',soundMode:'default'};
-const INIT_PIQUE    = {enabled:false,stake:500,participants:[],active:false,settled:false,winner:null,tied:[]};
+const INIT_SETTINGS = {apuesta:100,ternaPct:10,lineaPct:25,lotaPct:65,currency:'CLP',soundMode:'default'};
+const INIT_PIQUE    = {enabled:false,stake:100,participants:[],active:false,settled:false,winner:null,tied:[]};
 const INIT_GAME = {
   status:'idle',
   calledNumbers:[],
