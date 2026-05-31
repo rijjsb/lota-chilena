@@ -518,9 +518,7 @@ html,body{height:100%}
 /* ── CONNECTION DOT ── */
 .dot-online{width:9px;height:9px;border-radius:50%;background:#27AE60;border:1.5px solid #120804;flex-shrink:0}
 .dot-offline{width:9px;height:9px;border-radius:50%;background:#E74C3C;border:1.5px solid #120804;flex-shrink:0}
-/* ── PLAYERS STRIP (game view) ── */
-.pl-strip{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;width:100%;max-width:1180px;padding:4px 0}
-.pl-chip{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.05);border:1px solid rgba(212,82,42,.15);border-radius:8px;padding:4px 10px;font-size:.75rem;font-weight:700}
+/* ── PLAYERS PANEL (game view left column) ── */
 .pl-av-wrap{position:relative;flex-shrink:0}
 /* ── RESPONSIVE ── */
 @media(max-width:640px){
@@ -1130,24 +1128,26 @@ function AnnView({ ann, onClose }) {
 function PlayersStrip({ players, pique, me, lang }) {
   const [, setTick] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => setTick(n => n + 1), 15000); // refresh dots every 15s
+    const t = setInterval(() => setTick(n => n + 1), 15000);
     return () => clearInterval(t);
   }, []);
   return (
-    <div className="pl-strip">
+    <div className="panel" style={{width:210,flexShrink:0,alignSelf:'flex-start'}}>
+      <div className="panel-title">{lang==='es'?'Jugadores en sala':'Players'}</div>
       {players.map(p => (
-        <div key={p.id} className="pl-chip">
+        <div key={p.id} className="p-row">
           <div className="pl-av-wrap">
-            <div className="p-av" style={{width:22,height:22,fontSize:'.6rem',flexShrink:0}}>{p.name[0].toUpperCase()}</div>
+            <div className="p-av">{p.name[0].toUpperCase()}</div>
             <div className={isOnline(p) ? 'dot-online' : 'dot-offline'}
-              style={{position:'absolute',bottom:-1,right:-1,width:7,height:7}}
+              style={{position:'absolute',bottom:-1,right:-1}}
               title={isOnline(p)?(lang==='es'?'Conectado':'Connected'):(lang==='es'?'Desconectado':'Disconnected')} />
           </div>
-          <span style={{maxWidth:80,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          <span className="p-name" style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
             {p.name}{p.id === me?.id ? ` (${lang==='es'?'tú':'you'})` : ''}
           </span>
-          {p.isMC && <span style={{fontSize:'.58rem',color:'#E8B84B',fontWeight:900}}>MC</span>}
-          {pique?.active && !pique.settled && pique.participants?.includes(p.id) && <span style={{fontSize:'.7rem'}}>⚡</span>}
+          {p.isMC && <span className="p-tag-mc">MC</span>}
+          {pique?.enabled && pique.participants?.includes(p.id) && <span title="En El Pique" style={{fontSize:'.75rem'}}>⚡</span>}
+          <span className="p-tag-ct">#{CARTONES[p.cartonIdx].id}</span>
         </div>
       ))}
     </div>
@@ -1231,11 +1231,11 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
         </div>
       </div>
 
-      {/* ── PLAYERS STRIP ── */}
-      <PlayersStrip players={players} pique={pique} me={me} lang={lang} />
-
       {/* ── BODY ── */}
       <div className="game-body">
+        {/* LEFT: players panel */}
+        <PlayersStrip players={players} pique={pique} me={me} lang={lang} />
+
         {/* CENTER: player carton + prize buttons */}
         <div className="game-main">
           {/* Players see only last-drawn numbers, not a full list */}
