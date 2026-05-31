@@ -338,11 +338,12 @@ html,body{height:100%}
 
 /* ── LANDING ── */
 .landing{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;gap:36px}
+.landing-vignette{background:radial-gradient(ellipse at 50% 50%, rgba(18,8,4,0) 25%, rgba(18,8,4,0.5) 75%, rgba(18,8,4,0.62) 100%)}
 .hero{text-align:center}
 .hero .logo-txt{font-size:clamp(4.5rem,11vw,8rem)}
 .tagline{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.25em;color:#C8A070;margin-top:.6rem;text-shadow:0 1px 8px rgba(0,0,0,.8)}
 .cards-wrap{display:flex;gap:18px;width:100%;max-width:580px;flex-wrap:wrap;justify-content:center}
-.lc{background:rgba(12, 5, 2, 0.98);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(212,82,42,.9);border-radius:22px;padding:28px;flex:1;min-width:240px;display:flex;flex-direction:column;gap:14px;transition:border-color .25s,transform .2s}
+.lc{background:rgba(46,24,12,0.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(212,82,42,.9);border-radius:22px;padding:28px;flex:1;min-width:240px;display:flex;flex-direction:column;gap:14px;transition:border-color .25s,transform .2s}
 .lc:hover{border-color:rgba(212,82,42,.65);transform:translateY(-3px)}
 .lc-icon{font-size:2.2rem;text-align:center}
 .lc h2{font-size:1.2rem;font-weight:900;text-align:center;color:#FAEBD7}
@@ -613,6 +614,8 @@ html,body{height:100%}
   .cards-wrap{flex-direction:column}
   .settings-g{grid-template-columns:1fr}
   .game-tower{width:100%}
+  /* Tall phone screens push cards into the vignette's dark ring — soften it */
+  .landing-vignette{background:radial-gradient(ellipse 120% 70% at 50% 42%, rgba(18,8,4,0) 35%, rgba(18,8,4,0.32) 85%, rgba(18,8,4,0.45) 100%)}
 }
 @media(max-width:940px){
   .game-tower{width:100%}
@@ -738,15 +741,13 @@ function LandingView({ onCreate, onJoin, lang, onToggleLang, initialCode = '', l
       <img src="/lota-logo.png" aria-hidden="true" alt="" style={{
         position:'absolute', inset:0, width:'100%', height:'100%',
         objectFit:'cover', objectPosition:'center',
-        filter:'blur(1.5px) saturate(0.7)',
-        opacity:0.11,
+        filter:'blur(1.5px) saturate(0.8)',
+        opacity:0.16,
         pointerEvents:'none', userSelect:'none', zIndex:0,
       }} />
-      {/* Radial vignette — darkens edges, lets centre breathe */}
-      <div aria-hidden="true" style={{
-        position:'absolute', inset:0, zIndex:1,
-        background:'radial-gradient(ellipse at 50% 65%, rgba(18,8,4,0) 20%, rgba(18,8,4,0.65) 70%, rgba(18,8,4,0.75) 100%)',
-        pointerEvents:'none',
+      {/* Radial vignette — darkens edges, lets centre breathe (lighter on mobile via CSS) */}
+      <div aria-hidden="true" className="landing-vignette" style={{
+        position:'absolute', inset:0, zIndex:1, pointerEvents:'none',
       }} />
       {/* All content sits above the background layers */}
       <div style={{position:'relative',zIndex:2,display:'contents'}}>
