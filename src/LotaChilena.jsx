@@ -216,6 +216,22 @@ const isValid = (type, carton, marked, called) => {
   return false;
 };
 
+// ── Multi-carton helpers (each player has 2+ cards) ──
+const CARDS_PER_PLAYER = 2;
+const idxsOf  = p => (p?.cartonIdxs?.length ? p.cartonIdxs : (p?.cartonIdx != null ? [p.cartonIdx] : []));
+const cardsOf = p => idxsOf(p).map(i => CARTONES[i]).filter(Boolean);
+const canReqAny  = (type, cartons, marked)         => cartons.some(c => canReq(type, c, marked));
+const isValidAny = (type, cartons, marked, called) => cartons.some(c => isValid(type, c, marked, called));
+const hasHitOnCards = (cartons, called) => called.some(n => cartons.some(c => c.rows.some(row => row.includes(n))));
+const firstIdx = p => Math.min(...idxsOf(p).concat([999])); // for stable sorting
+// Pick the n highest-numbered available cartons (descending from #50)
+// so the low numbers stay free for people who want to choose them.
+const pickTopCartons = (takenIdxs, n) => {
+  const out = [];
+  for (let i = 49; i >= 0 && out.length < n; i--) if (!takenIdxs.includes(i)) out.push(i);
+  return out;
+};
+
 const calcPot   = (cnt, ap)  => cnt * ap;
 const calcPrize = (p, pct)   => Math.floor(p * pct / 100);
 const fmtClp    = n          => `$${n.toLocaleString('es-CL')}`;
@@ -391,7 +407,7 @@ html,body{height:100%}
 .tw-panel{background:#1C0E07;border:1px solid rgba(212,82,42,.18);border-radius:14px;padding:14px}
 .tw-title{font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.13em;color:#C8A878;margin-bottom:10px}
 .draw-row{display:flex;align-items:center;gap:14px}
-.big-ball{width:78px;height:78px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff 0%,#C94B28 55%,#7A2010 100%);display:flex;align-items:center;justify-content:center;font-family:'Lobster',cursive;font-size:2.1rem;color:#fff;box-shadow:0 6px 22px rgba(201,75,40,.55),inset 0 2px 5px rgba(255,255,255,.2);flex-shrink:0;transition:box-shadow .3s}
+.big-ball{width:78px;height:78px;border-radius:50%;background:radial-gradient(circle at 30% 27%,#E8856A 0%,#C94B28 45%,#7A2010 100%);display:flex;align-items:center;justify-content:center;font-family:'Lobster',cursive;font-size:2.1rem;color:#fff;box-shadow:0 6px 22px rgba(201,75,40,.55),inset 0 2px 5px rgba(255,255,255,.2);flex-shrink:0;transition:box-shadow .3s}
 .big-ball.fresh{animation:ballPop .44s cubic-bezier(.175,.885,.32,1.275)}
 .big-ball.empty{background:#231008;color:#8A6050;font-family:'Nunito',sans-serif;font-size:.75rem;font-weight:700}
 .matrix{display:flex;flex-direction:column;gap:3px}
@@ -411,7 +427,7 @@ html,body{height:100%}
 .last-wrap{display:flex;flex-direction:column;align-items:center;gap:7px;width:100%;max-width:540px}
 .last-lbl{font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#A8886A}
 .last-balls{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
-.mini-ball{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff 0%,#C94B28 55%,#7A2010 100%);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.72rem;color:#fff;box-shadow:0 2px 8px rgba(201,75,40,.4);flex-shrink:0}
+.mini-ball{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 30% 27%,#E8856A 0%,#C94B28 45%,#7A2010 100%);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:.72rem;color:#fff;box-shadow:0 2px 8px rgba(201,75,40,.4);flex-shrink:0}
 .mini-ball.newest{animation:ballPop .38s cubic-bezier(.175,.885,.32,1.275)}
 
 /* ── ANNOUNCEMENT ── */
@@ -423,7 +439,7 @@ html,body{height:100%}
 .ann-request{background:rgba(8,4,1,.97);border:3px solid #E8B84B}
 .ann-win{background:rgba(8,4,1,.97);border:3px solid #27AE60}
 .ann-invalid{background:rgba(8,4,1,.97);border:3px solid #E74C3C}
-.ann-ball{width:108px;height:108px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff 0%,#C94B28 55%,#7A2010 100%);display:flex;align-items:center;justify-content:center;font-family:'Lobster',cursive;font-size:3rem;color:#fff;margin:0 auto 16px;box-shadow:0 0 45px rgba(201,75,40,.7)}
+.ann-ball{width:108px;height:108px;border-radius:50%;background:radial-gradient(circle at 30% 27%,#E8856A 0%,#C94B28 45%,#7A2010 100%);display:flex;align-items:center;justify-content:center;font-family:'Lobster',cursive;font-size:3rem;color:#fff;margin:0 auto 16px;box-shadow:0 0 45px rgba(201,75,40,.7)}
 .ann-title{font-family:'Lobster',cursive;font-size:2.3rem;line-height:1.1}
 .ann-draw   .ann-title{color:#FFF3E0}
 .ann-request .ann-title{color:#E8B84B}
@@ -574,23 +590,26 @@ function Marker({ skin }) {
   return <div className="mk-dot" />;
 }
 
-// Full carton card with marking
-function CartonCard({ carton, marked = [], calledNums = [], skin = 'dot', onToggle, readonly = false }) {
+// Full carton card with marking.
+// hideCalled = true → don't reveal which numbers have been called (player's own card);
+// the player must spot and mark numbers themselves.
+function CartonCard({ carton, marked = [], calledNums = [], skin = 'dot', onToggle, readonly = false, hideCalled = false }) {
   const m = new Set(marked), c = new Set(calledNums);
   const total = allNums(carton).length;
   const correct = allNums(carton).filter(n => m.has(n) && c.has(n)).length;
+  const markedCount = allNums(carton).filter(n => m.has(n)).length;
   return (
     <div className="ct-wrap">
       <div className="ct-hdr">
         <span className="ct-id">Cartón #{carton.id}</span>
-        <span className="ct-prog">{correct} / {total}</span>
+        <span className="ct-prog">{hideCalled ? markedCount : correct} / {total}</span>
       </div>
       <div className="ct-grid">
         {carton.rows.map((row, ri) => (
           <div key={ri} className="ct-row">
             {row.map((num, ci) => {
               if (num === 0) return <div key={ci} className="ct-cell emp" />;
-              const isMk = m.has(num), isCld = c.has(num);
+              const isMk = m.has(num), isCld = !hideCalled && c.has(num);
               return (
                 <div
                   key={ci}
@@ -796,7 +815,8 @@ function TransferModal({ targetName, onConfirm, onCancel, lang }) {
 function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, onStart, onBack, onShowBalances, onTransferMC, pique, onPique, lang, onToggleLang, loading = false }) {
   const [transferTarget, setTransferTarget] = useState(null);
   const [showShare, setShowShare]           = useState(false);
-  const taken  = players.filter(p => p.id !== me.id).map(p => p.cartonIdx);
+  const taken  = players.filter(p => p.id !== me.id).flatMap(p => idxsOf(p));
+  const myIdxs = idxsOf(me);
   const pctSum = settings.ternaPct + settings.lineaPct + settings.lotaPct;
   const total  = calcPot(players.length, settings.apuesta);
   const inPique = pique.participants.includes(me.id);
@@ -833,7 +853,7 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
         <div className="lb-left">
           <div className="panel">
             <div className="panel-title">{t(lang,'playersInRoom')}</div>
-            {[...players].sort((a,b) => a.cartonIdx - b.cartonIdx).map(p => (
+            {[...players].sort((a,b) => firstIdx(a) - firstIdx(b)).map(p => (
               <div key={p.id} className="p-row">
                 <div className="pl-av-wrap">
                   <div className="p-av">{p.name[0].toUpperCase()}</div>
@@ -845,7 +865,7 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
                 {pique.enabled && pique.participants.includes(p.id) && (
                   <span title="En El Pique" style={{fontSize:'.8rem'}}>⚡</span>
                 )}
-                <span className="p-tag-ct">#{CARTONES[p.cartonIdx].id}</span>
+                <span className="p-tag-ct">{idxsOf(p).map(i => `#${CARTONES[i].id}`).join(' ')}</span>
                 {me.isMC && !p.isMC && (
                   <button className="btn btn-ghost btn-sm" style={{padding:'2px 7px',fontSize:'.65rem'}}
                     onClick={() => setTransferTarget(p)} title={t(lang,'transferTitle')}>🎤→</button>
@@ -905,16 +925,33 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
           )}
 
           <div className="panel">
-            <div className="panel-title">{t(lang,'chooseCarton')}</div>
+            <div className="panel-title">
+              {lang==='es' ? `Elige tus ${CARDS_PER_PLAYER} cartones` : `Choose your ${CARDS_PER_PLAYER} cards`}
+              {' '}({myIdxs.length}/{CARDS_PER_PLAYER})
+            </div>
             <div className="cs-wrap">
-              {CARTONES.map((c, i) => (
-                <button key={c.id} className={`cs-btn${me.cartonIdx === i ? ' active' : ''}`}
-                  disabled={taken.includes(i)} onClick={() => onCarton(i)}>
-                  #{c.id}
-                </button>
+              {CARTONES.map((c, i) => {
+                const mine = myIdxs.includes(i);
+                const full = myIdxs.length >= CARDS_PER_PLAYER;
+                return (
+                  <button key={c.id} className={`cs-btn${mine ? ' active' : ''}`}
+                    disabled={taken.includes(i) || (full && !mine)}
+                    onClick={() => onCarton(i)}>
+                    #{c.id}
+                  </button>
+                );
+              })}
+            </div>
+            {myIdxs.length < CARDS_PER_PLAYER && (
+              <p className="warn">{lang==='es'
+                ? `Selecciona ${CARDS_PER_PLAYER - myIdxs.length} cartón(es) más.`
+                : `Select ${CARDS_PER_PLAYER - myIdxs.length} more card(s).`}</p>
+            )}
+            <div className="flex fc g12" style={{marginTop:10}}>
+              {myIdxs.map(i => (
+                <CartonCard key={i} carton={CARTONES[i]} marked={[]} calledNums={[]} skin={me.skin} readonly />
               ))}
             </div>
-            <CartonCard carton={CARTONES[me.cartonIdx]} marked={[]} calledNums={[]} skin={me.skin} readonly />
           </div>
 
           <div className="panel">
@@ -990,9 +1027,17 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
           </div>
 
           {me.isMC
-            ? <button className="btn btn-gold btn-xl btn-block" disabled={pctSum !== 100 || loading} onClick={onStart}>
-                {loading ? '⏳' : '🎉 ' + t(lang,'startGame')}
-              </button>
+            ? (() => {
+                const everyoneReady = players.every(p => idxsOf(p).length >= CARDS_PER_PLAYER);
+                return <>
+                  <button className="btn btn-gold btn-xl btn-block" disabled={pctSum !== 100 || loading || !everyoneReady} onClick={onStart}>
+                    {loading ? '⏳' : '🎉 ' + t(lang,'startGame')}
+                  </button>
+                  {!everyoneReady && <p className="warn">{lang==='es'
+                    ? 'Algunos jugadores aún no eligen sus 2 cartones.'
+                    : 'Some players haven\'t chosen their 2 cards yet.'}</p>}
+                </>;
+              })()
             : <div className="wait-banner">
                 <p className="dim sm pulse">{t(lang,'waitingMC')}</p>
               </div>
@@ -1042,8 +1087,8 @@ function SnoopModal({ players, game, onClose, onValidate, onReject, lang }) {
               {game.requests.map(req => {
                 const pl = players.find(p => p.id === req.playerId);
                 const valid = pl && (req.type === 'pique'
-                  ? game.calledNumbers.some(n => CARTONES[pl.cartonIdx].rows.some(row => row.includes(n)))
-                  : isValid(req.type, CARTONES[pl.cartonIdx], pl.marked, game.calledNumbers));
+                  ? hasHitOnCards(cardsOf(pl), game.calledNumbers)
+                  : isValidAny(req.type, cardsOf(pl), pl.marked, game.calledNumbers));
                 const validMsg = req.type === 'pique'
                   ? (lang==='es' ? '✅ Tiene un número cantado en su cartón' : '✅ Has a called number on their card')
                   : (lang==='es' ? '✅ Válido según marcas y números' : '✅ Valid by marks and numbers');
@@ -1071,7 +1116,7 @@ function SnoopModal({ players, game, onClose, onValidate, onReject, lang }) {
           {/* All player cards */}
           <div className="snoop-grid">
             {players.map(p => {
-              const carton = CARTONES[p.cartonIdx];
+              const cards = cardsOf(p);
               const reqs = reqsByPlayer[p.id] || [];
               const correctMarks = p.marked.filter(n => game.calledNumbers.includes(n)).length;
               const wrongMarks = p.marked.filter(n => !game.calledNumbers.includes(n)).length;
@@ -1081,7 +1126,7 @@ function SnoopModal({ players, game, onClose, onValidate, onReject, lang }) {
                     <span className="sn-name">{p.name}</span>
                     <div className="flex g5 ac">
                       {p.isMC && <span className="chip chip-mc">MC</span>}
-                      <span className="xs dim">#{carton.id}</span>
+                      <span className="xs dim">{idxsOf(p).map(i => `#${CARTONES[i].id}`).join(' ')}</span>
                       {reqs.length > 0 && <span className="chip chip-req">¡{reqs[0].type.toUpperCase()}!</span>}
                     </div>
                   </div>
@@ -1094,18 +1139,22 @@ function SnoopModal({ players, game, onClose, onValidate, onReject, lang }) {
                       </div>
                     </div>
                   ))}
-                  <MiniCarton carton={carton} marked={p.marked} calledNums={game.calledNumbers} />
+                  <div className="flex fc g8">
+                    {cards.map((carton, ci) => (
+                      <div key={ci}>
+                        <div className="xs dim" style={{marginBottom:3}}>#{carton.id}</div>
+                        <MiniCarton carton={carton} marked={p.marked} calledNums={game.calledNumbers} />
+                      </div>
+                    ))}
+                  </div>
                   <div className="flex jb mt8 xs dim">
-                    <span>✅ {correctMarks} correctos</span>
-                    <span>🔴 {wrongMarks} incorrectos</span>
+                    <span>✅ {correctMarks} {lang==='es'?'correctos':'correct'}</span>
+                    <span>🔴 {wrongMarks} {lang==='es'?'incorrectos':'wrong'}</span>
                   </div>
                 </div>
               );
             })}
           </div>
-          <p className="xs dim tc" style={{borderTop:'1px solid rgba(212,82,42,.12)',paddingTop:12}}>
-            💡 <strong style={{color:'#B08868'}}>{lang==='es'?'Modo demo':'Demo mode'}:</strong> {t(lang,'demoNote')}
-          </p>
         </div>
       </div>
     </div>
@@ -1145,7 +1194,7 @@ function PlayersStrip({ players, pique, me, lang }) {
   return (
     <div className="panel" style={{width:230,flexShrink:0,alignSelf:'flex-start'}}>
       <div className="panel-title">{lang==='es'?'Jugadores en sala':'Players'}</div>
-      {[...players].sort((a,b) => a.cartonIdx - b.cartonIdx).map(p => (
+      {[...players].sort((a,b) => firstIdx(a) - firstIdx(b)).map(p => (
         <div key={p.id} className="p-row">
           <div className="pl-av-wrap">
             <div className="p-av">{p.name[0].toUpperCase()}</div>
@@ -1158,7 +1207,7 @@ function PlayersStrip({ players, pique, me, lang }) {
           </span>
           {p.isMC && <span className="p-tag-mc">MC</span>}
           {pique?.enabled && pique.participants?.includes(p.id) && <span title="En El Pique" style={{fontSize:'.75rem'}}>⚡</span>}
-          <span className="p-tag-ct">#{CARTONES[p.cartonIdx].id}</span>
+          <span className="p-tag-ct">{idxsOf(p).map(i => `#${CARTONES[i].id}`).join(' ')}</span>
         </div>
       ))}
     </div>
@@ -1222,21 +1271,21 @@ function TieBreakModal({ tiedPlayers, piqueAmount, onSplit, onKeepDrawing, lang 
 
 function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, onClaimPique, onValidate, onReject, showSnoop, setShowSnoop, ballKey, onLeave, onSettle, onShowBalances, pique, piqueAction, lang, onToggleLang }) {
   const [showLeaveWarn, setShowLeaveWarn] = useState(false);
-  const carton = CARTONES[me.cartonIdx];
+  const myCards = cardsOf(me);
   const total = calcPot(players.length, settings.apuesta);
   const { terna, linea, lota } = game.prizes;
   const allDone = !!(terna && linea && lota);
 
-  // Prize button eligibility
-  const canTerna = !terna && canReq('terna', carton, me.marked);
-  const canLinea = !!terna && !linea && canReq('linea', carton, me.marked);
-  const canLota  = !!linea && !lota  && canReq('lota',  carton, me.marked);
+  // Prize button eligibility (across all of player's cards)
+  const canTerna = !terna && canReqAny('terna', myCards, me.marked);
+  const canLinea = !!terna && !linea && canReqAny('linea', myCards, me.marked);
+  const canLota  = !!linea && !lota  && canReqAny('lota',  myCards, me.marked);
 
-  // Pique button: active participant + at least 1 called number on card + not already claimed
+  // Pique button: active participant + at least 1 called number on any card + not already claimed
   const inPique      = pique.active && !pique.settled && pique.participants?.includes(me.id);
   const canClaimPiq  = inPique
     && !game.requests.some(r => r.type === 'pique' && r.playerId === me.id)
-    && game.calledNumbers.some(n => carton.rows.some(row => row.includes(n)));
+    && hasHitOnCards(myCards, game.calledNumbers);
   const pendingPiqReq = game.requests.some(r => r.type === 'pique' && r.playerId === me.id);
 
   const recent = [...game.calledNumbers].reverse().slice(0, VISIBLE_LAST_CALLS);
@@ -1268,7 +1317,9 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
         </div>
 
         <div className="flex g8 ac">
-          <button className="btn btn-ghost btn-sm" onClick={me.isMC ? () => setShowLeaveWarn(true) : onLeave}>{t(lang,'lobby')}</button>
+          {me.isMC && (
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowLeaveWarn(true)}>{t(lang,'lobby')}</button>
+          )}
           <button className="btn btn-ghost btn-sm" onClick={onShowBalances}>{t(lang,'balances')}</button>
           {me.isMC && allDone && (
             <button className="btn btn-gold btn-sm" onClick={onSettle}>{t(lang,'finalSettle')}</button>
@@ -1296,8 +1347,12 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
             </div>
           )}
 
-          <CartonCard carton={carton} marked={me.marked} calledNums={game.calledNumbers}
-            skin={me.skin} onToggle={onMark} />
+          <div className="flex fc g12" style={{width:'100%',maxWidth:540}}>
+            {myCards.map((carton, ci) => (
+              <CartonCard key={ci} carton={carton} marked={me.marked} calledNums={game.calledNumbers}
+                skin={me.skin} onToggle={onMark} hideCalled />
+            ))}
+          </div>
 
           {/* Pique button — shown to participants only, below prize row */}
           {(inPique || pique.settled) && (
@@ -1462,7 +1517,7 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
 // ────────────────────────────────────────────────────────────
 // BALANCES MODAL  (lobby + in-game overlay)
 // ────────────────────────────────────────────────────────────
-const EMPTY_STAT = { gamesPlayed: 0, wins: { terna: 0, linea: 0, lota: 0 }, totalWagered: 0 };
+const EMPTY_STAT = { gamesPlayed: 0, wins: { terna: 0, linea: 0, lota: 0, pique: 0 }, totalWagered: 0 };
 
 function StatsTable({ players, stats, lang = 'es' }) {
   const sorted = [...players].sort((a, b) => b.balance - a.balance);
@@ -1476,6 +1531,7 @@ function StatsTable({ players, stats, lang = 'es' }) {
             <th style={{color:'#E8B84B'}}>Ternas</th>
             <th style={{color:'#C94B28'}}>Líneas</th>
             <th style={{color:'#27AE60'}}>Lotas</th>
+            <th style={{color:'#BE8EE8'}}>Piques</th>
             <th>{t(lang,'stBet')}</th>
             <th>{t(lang,'stBalance')}</th>
           </tr>
@@ -1496,6 +1552,7 @@ function StatsTable({ players, stats, lang = 'es' }) {
                 <td className="st-terna">{st.wins.terna}</td>
                 <td className="st-linea">{st.wins.linea}</td>
                 <td className="st-lota">{st.wins.lota}</td>
+                <td style={{color:'#BE8EE8'}}>{st.wins.pique ?? 0}</td>
                 <td className="dim">-{fmtClp(st.totalWagered)}</td>
                 <td className={p.balance > 0 ? 'bal-pos' : p.balance < 0 ? 'bal-neg' : 'bal-zero'}>
                   {p.balance > 0 ? '+' : ''}{fmtClp(p.balance)}
@@ -1758,13 +1815,14 @@ export default function App() {
         if (!data) break;
       }
       const id = 'mc-' + Date.now();
+      const mcCards = pickTopCartons([], CARDS_PER_PLAYER); // top 2: #50, #49
       await supabase.from('rooms').insert({ code, settings: INIT_SETTINGS, status: 'lobby' });
       await supabase.from('players').insert({
         id, room_code: code, name, normalized_name: normalizeName(name),
-        is_mc: true, carton_idx: 0, skin: 'dot', marked: [], balance: 0,
+        is_mc: true, carton_idx: mcCards[0], carton_idxs: mcCards, skin: 'dot', marked: [], balance: 0,
       });
       window.history.pushState(null, '', `/${code}`);
-      const mc = { id, name, isMC: true, cartonIdx: 0, skin: 'dot', marked: [], balance: 0 };
+      const mc = { id, name, isMC: true, cartonIdxs: mcCards, skin: 'dot', marked: [], balance: 0 };
       setRoom({ code });
       setMe(mc);
       setPlayers([mc]);
@@ -1794,16 +1852,16 @@ export default function App() {
         await supabase.from('players').update({ last_seen: new Date().toISOString() }).eq('id', existing.id);
         player = supaToPlayer(existing);
       } else {
-        // New player — find next free carton
-        const { data: taken } = await supabase.from('players').select('carton_idx').eq('room_code', code);
-        const takenIdxs = (taken || []).map(p => p.carton_idx);
-        const cartonIdx = Array.from({ length: 50 }, (_, i) => i).find(i => !takenIdxs.includes(i)) ?? 0;
+        // New player — assign 2 highest available cartons (descending from #50)
+        const { data: taken } = await supabase.from('players').select('carton_idxs,carton_idx').eq('room_code', code);
+        const takenIdxs = (taken || []).flatMap(p => (p.carton_idxs?.length ? p.carton_idxs : [p.carton_idx]));
+        const myCards = pickTopCartons(takenIdxs, CARDS_PER_PLAYER);
         const id = 'p-' + Date.now();
         await supabase.from('players').insert({
           id, room_code: code, name, normalized_name: normalized,
-          is_mc: false, carton_idx: cartonIdx, skin: 'dot', marked: [], balance: 0,
+          is_mc: false, carton_idx: myCards[0], carton_idxs: myCards, skin: 'dot', marked: [], balance: 0,
         });
-        player = { id, name, isMC: false, cartonIdx, skin: 'dot', marked: [], balance: 0 };
+        player = { id, name, isMC: false, cartonIdxs: myCards, skin: 'dot', marked: [], balance: 0 };
       }
 
       // Load current players + active game
@@ -1830,13 +1888,22 @@ export default function App() {
     finally { setLoading(false); }
   }, [lang]);
 
-  // ── SELECT CARTON ─────────────────────────────────────────
+  // ── SELECT CARTON (toggle within my set of CARDS_PER_PLAYER) ──
   const selectCarton = useCallback(async (idx) => {
-    const taken = players.filter(p => p.id !== me.id).map(p => p.cartonIdx);
-    if (taken.includes(idx)) return;
-    setMe(prev => ({ ...prev, cartonIdx: idx, marked: [] }));
-    setPlayers(prev => prev.map(p => p.id === me.id ? { ...p, cartonIdx: idx, marked: [] } : p));
-    await supabase.from('players').update({ carton_idx: idx, marked: [] }).eq('id', me.id);
+    const takenByOthers = players.filter(p => p.id !== me.id).flatMap(p => idxsOf(p));
+    if (takenByOthers.includes(idx)) return;
+    const mine = idxsOf(me);
+    let next;
+    if (mine.includes(idx)) {
+      next = mine.filter(i => i !== idx);            // deselect
+    } else if (mine.length >= CARDS_PER_PLAYER) {
+      return;                                        // already full
+    } else {
+      next = [...mine, idx].sort((a,b) => a - b);    // add
+    }
+    setMe(prev => ({ ...prev, cartonIdxs: next, marked: [] }));
+    setPlayers(prev => prev.map(p => p.id === me.id ? { ...p, cartonIdxs: next, marked: [] } : p));
+    await supabase.from('players').update({ carton_idx: next[0] ?? 0, carton_idxs: next, marked: [] }).eq('id', me.id);
   }, [me, players]);
 
   // ── SELECT SKIN ───────────────────────────────────────────
@@ -1954,9 +2021,8 @@ export default function App() {
     const pq = piqueRef.current;
     if (!pq.active || pq.settled) return;
     if (!pq.participants?.includes(me.id)) return;
-    // Must have at least one called number on card
-    const hasHit = game.calledNumbers.some(n => CARTONES[me.cartonIdx].rows.some(row => row.includes(n)));
-    if (!hasHit) return;
+    // Must have at least one called number on any card
+    if (!hasHitOnCards(cardsOf(me), game.calledNumbers)) return;
     // Already have a pending pique claim
     if (game.requests.some(r => r.type === 'pique' && r.playerId === me.id)) return;
 
@@ -1977,7 +2043,7 @@ export default function App() {
     if (game.prizes[type]) return;
     if (type === 'linea' && !game.prizes.terna) return;
     if (type === 'lota'  && !game.prizes.linea) return;
-    if (!canReq(type, CARTONES[me.cartonIdx], me.marked)) return;
+    if (!canReqAny(type, cardsOf(me), me.marked)) return;
 
     const reqId = Date.now() + '';
     const req   = { id: reqId, playerId: me.id, playerName: me.name, type, ts: tstamp() };
@@ -2008,8 +2074,8 @@ export default function App() {
         await supabase.from('games').update({ requests: newReqs, log: [invEntry, ...game.log] }).eq('id', gameIdRef.current);
         return;
       }
-      // Validate: must be a participant with at least 1 called number on card
-      const hasHit = game.calledNumbers.some(n => CARTONES[player.cartonIdx].rows.some(row => row.includes(n)));
+      // Validate: must be a participant with at least 1 called number on any card
+      const hasHit = hasHitOnCards(cardsOf(player), game.calledNumbers);
       const amount = pq.participants.length * pq.stake;
       // Remove this request + all other pique requests (auto-reject)
       const otherPiqueReqs = game.requests.filter(r => r.id !== reqId && r.type === 'pique');
@@ -2024,6 +2090,7 @@ export default function App() {
         setGame(prev => ({ ...prev, requests: newReqs, log: newLog }));
         setPlayers(prev => prev.map(p => p.id === req.playerId ? { ...p, balance: p.balance + amount } : p));
         if (req.playerId === me.id) setMe(prev => ({ ...prev, balance: prev.balance + amount }));
+        setStats(prev => { const e = prev[req.playerName]||EMPTY_STAT; return {...prev,[req.playerName]:{...e,wins:{...e.wins,pique:(e.wins.pique??0)+1}}}; });
         announce('win', `¡${req.playerName} ${es?'ganó El Pique':'won El Pique'}!`, '', fmtClp(amount), 5500);
         await Promise.all([
           supabase.from('games').update({ pique_state: newPiqueState, requests: newReqs, log: newLog }).eq('id', gameIdRef.current),
@@ -2051,7 +2118,7 @@ export default function App() {
       await supabase.from('games').update({ requests: newReqs, log: newLog }).eq('id', gameIdRef.current);
       return;
     }
-    const valid   = isValid(req.type, CARTONES[player.cartonIdx], player.marked, game.calledNumbers);
+    const valid   = isValidAny(req.type, cardsOf(player), player.marked, game.calledNumbers);
     const newReqs = game.requests.filter(r => r.id !== reqId);
 
     if (valid) {
