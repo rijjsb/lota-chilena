@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { supabase, supaToPlayer, supaToGame, normalizeName, isOnline } from './supabase.js';
 
 /* ═══════════════════════════════════════════════════════════════
    LOTA CHILENA 🎱 — Chilean Family Bingo
@@ -514,6 +515,11 @@ html,body{height:100%}
 .st-lota{color:#27AE60}
 .cur-prizes{display:flex;flex-direction:column;gap:3px;margin-bottom:16px}
 
+/* ── CONNECTION DOT ── */
+.dot-online{width:9px;height:9px;border-radius:50%;background:#27AE60;border:1.5px solid #120804;flex-shrink:0}
+.dot-offline{width:9px;height:9px;border-radius:50%;background:#E74C3C;border:1.5px solid #120804;flex-shrink:0}
+/* ── PLAYERS PANEL (game view left column) ── */
+.pl-av-wrap{position:relative;flex-shrink:0}
 /* ── RESPONSIVE ── */
 @media(max-width:640px){
   .ann-box{padding:26px 32px}
@@ -633,7 +639,7 @@ function MiniCarton({ carton, marked = [], calledNums = [] }) {
 // ────────────────────────────────────────────────────────────
 // LANDING
 // ────────────────────────────────────────────────────────────
-function LandingView({ onCreate, onJoin, lang, onToggleLang, initialCode = '' }) {
+function LandingView({ onCreate, onJoin, lang, onToggleLang, initialCode = '', loading = false, joinError = '' }) {
   const [cName, setCName] = useState('');
   const [jCode, setJCode] = useState(initialCode);
   const [jName, setJName] = useState('');
@@ -674,8 +680,8 @@ function LandingView({ onCreate, onJoin, lang, onToggleLang, initialCode = '' })
             <input className="inp" value={cName} onChange={e => setCName(e.target.value)}
               placeholder="Ej: Felipe Humberto Camiroaga Fernández" onKeyDown={e => e.key === 'Enter' && cName.trim() && onCreate(cName.trim())} />
           </div>
-          <button className="btn btn-gold btn-xl btn-block" disabled={!cName.trim()} onClick={() => onCreate(cName.trim())}>
-            {t(lang,'createBtn')}
+          <button className="btn btn-gold btn-xl btn-block" disabled={!cName.trim() || loading} onClick={() => onCreate(cName.trim())}>
+            {loading ? '⏳' : t(lang,'createBtn')}
           </button>
         </div>
 
@@ -695,15 +701,16 @@ function LandingView({ onCreate, onJoin, lang, onToggleLang, initialCode = '' })
             <label className="lbl">{t(lang,'yourName')}</label>
             <input className="inp" value={jName} onChange={e => setJName(e.target.value)} placeholder="Ej: Felipe Humberto Camiroaga Fernández" />
           </div>
+          {joinError && <p style={{color:'#E74C3C',fontSize:'.8rem',fontWeight:700,textAlign:'center'}}>{joinError}</p>}
           <button className="btn btn-red btn-xl btn-block"
-            disabled={jCode.length < 6 || !jName.trim()}
+            disabled={jCode.length < 6 || !jName.trim() || loading}
             onClick={() => onJoin(jCode, jName.trim())}>
-            {t(lang,'joinBtn')}
+            {loading ? '⏳' : t(lang,'joinBtn')}
           </button>
         </div>
       </div>
 
-      <p className="xs tc" style={{color:'#9A7050'}}>{t(lang,'offlineNote')}</p>
+      <p className="xs tc" style={{color:'#9A7050'}}>{lang==='es'?'Multijugador en tiempo real · lota.cl':'Real-time multiplayer · lota.cl'}</p>
       </div>{/* end z-index content wrapper */}
     </div>
   );
@@ -783,7 +790,7 @@ function TransferModal({ targetName, onConfirm, onCancel, lang }) {
 // ────────────────────────────────────────────────────────────
 // LOBBY
 // ────────────────────────────────────────────────────────────
-function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, onStart, onBack, onShowBalances, onTransferMC, pique, onPique, lang, onToggleLang }) {
+function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, onStart, onBack, onShowBalances, onTransferMC, pique, onPique, lang, onToggleLang, loading = false }) {
   const [transferTarget, setTransferTarget] = useState(null);
   const [showShare, setShowShare]           = useState(false);
   const taken  = players.filter(p => p.id !== me.id).map(p => p.cartonIdx);
@@ -823,11 +830,18 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
         <div className="lb-left">
           <div className="panel">
             <div className="panel-title">{t(lang,'playersInRoom')}</div>
-            {players.map(p => (
+            {[...players].sort((a,b) => a.cartonIdx - b.cartonIdx).map(p => (
               <div key={p.id} className="p-row">
-                <div className="p-av">{p.name[0].toUpperCase()}</div>
+                <div className="pl-av-wrap">
+                  <div className="p-av">{p.name[0].toUpperCase()}</div>
+                  <div className={isOnline(p) ? 'dot-online' : 'dot-offline'}
+                    style={{position:'absolute',bottom:-1,right:-1}} title={isOnline(p)?(lang==='es'?'Conectado':'Connected'):(lang==='es'?'Desconectado':'Disconnected')} />
+                </div>
                 <span className="p-name">{p.name}{p.id === me.id ? ` (${lang==='es'?'tú':'you'})` : ''}</span>
                 {p.isMC && <span className="p-tag-mc">MC</span>}
+                {pique.enabled && pique.participants.includes(p.id) && (
+                  <span title="En El Pique" style={{fontSize:'.8rem'}}>⚡</span>
+                )}
                 <span className="p-tag-ct">#{CARTONES[p.cartonIdx].id}</span>
                 {me.isMC && !p.isMC && (
                   <button className="btn btn-ghost btn-sm" style={{padding:'2px 7px',fontSize:'.65rem'}}
@@ -973,8 +987,8 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
           </div>
 
           {me.isMC
-            ? <button className="btn btn-gold btn-xl btn-block" disabled={pctSum !== 100} onClick={onStart}>
-                🎉 {t(lang,'startGame')}
+            ? <button className="btn btn-gold btn-xl btn-block" disabled={pctSum !== 100 || loading} onClick={onStart}>
+                {loading ? '⏳' : '🎉 ' + t(lang,'startGame')}
               </button>
             : <div className="wait-banner">
                 <p className="dim sm pulse">{t(lang,'waitingMC')}</p>
@@ -1110,6 +1124,63 @@ function AnnView({ ann, onClose }) {
 // ────────────────────────────────────────────────────────────
 // TIE BREAK MODAL
 // ────────────────────────────────────────────────────────────
+// Compact player strip shown in the game view for everyone
+function PlayersStrip({ players, pique, me, lang }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setTick(n => n + 1), 15000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="panel" style={{width:230,flexShrink:0,alignSelf:'flex-start'}}>
+      <div className="panel-title">{lang==='es'?'Jugadores en sala':'Players'}</div>
+      {[...players].sort((a,b) => a.cartonIdx - b.cartonIdx).map(p => (
+        <div key={p.id} className="p-row">
+          <div className="pl-av-wrap">
+            <div className="p-av">{p.name[0].toUpperCase()}</div>
+            <div className={isOnline(p) ? 'dot-online' : 'dot-offline'}
+              style={{position:'absolute',bottom:-1,right:-1}}
+              title={isOnline(p)?(lang==='es'?'Conectado':'Connected'):(lang==='es'?'Desconectado':'Disconnected')} />
+          </div>
+          <span className="p-name">
+            {p.name}{p.id === me?.id ? ` (${lang==='es'?'tú':'you'})` : ''}
+          </span>
+          {p.isMC && <span className="p-tag-mc">MC</span>}
+          {pique?.enabled && pique.participants?.includes(p.id) && <span title="En El Pique" style={{fontSize:'.75rem'}}>⚡</span>}
+          <span className="p-tag-ct">#{CARTONES[p.cartonIdx].id}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LeaveGameModal({ onConfirm, onCancel, lang }) {
+  return (
+    <div className="modal-bg" onClick={onCancel}>
+      <div className="modal-box" style={{maxWidth:420}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-hdr">
+          <h2>⚠️ {lang==='es'?'¿Salir de la partida?':'Leave the game?'}</h2>
+        </div>
+        <div className="modal-body">
+          <p style={{fontWeight:700,fontSize:'1rem',lineHeight:1.5}}>
+            {lang==='es'
+              ? 'Si sales como Animador, la partida terminará para todos los jugadores.'
+              : 'If you leave as MC, the game will end for all players.'}
+          </p>
+          <div className="flex g10 mt12" style={{justifyContent:'space-between',alignItems:'center'}}>
+            <button className="btn btn-ghost btn-sm" onClick={onConfirm}>
+              {lang==='es'?'Sí, terminar partida':'Yes, end game'}
+            </button>
+            <button className="btn btn-gold btn-xl" onClick={onCancel}>
+              {lang==='es'?'← No, seguir jugando':'← No, keep playing'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TieBreakModal({ tiedPlayers, piqueAmount, onSplit, onKeepDrawing, lang }) {
   const perPlayer = Math.floor(piqueAmount / tiedPlayers.length);
   return (
@@ -1139,6 +1210,7 @@ function TieBreakModal({ tiedPlayers, piqueAmount, onSplit, onKeepDrawing, lang 
 }
 
 function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, onValidate, onReject, showSnoop, setShowSnoop, ballKey, onLeave, onSettle, onShowBalances, pique, piqueAction, lang, onToggleLang }) {
+  const [showLeaveWarn, setShowLeaveWarn] = useState(false);
   const carton = CARTONES[me.cartonIdx];
   const total = calcPot(players.length, settings.apuesta);
   const { terna, linea, lota } = game.prizes;
@@ -1178,7 +1250,7 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
         </div>
 
         <div className="flex g8 ac">
-          <button className="btn btn-ghost btn-sm" onClick={onLeave}>{t(lang,'lobby')}</button>
+          <button className="btn btn-ghost btn-sm" onClick={me.isMC ? () => setShowLeaveWarn(true) : onLeave}>{t(lang,'lobby')}</button>
           <button className="btn btn-ghost btn-sm" onClick={onShowBalances}>{t(lang,'balances')}</button>
           {me.isMC && allDone && (
             <button className="btn btn-gold btn-sm" onClick={onSettle}>{t(lang,'finalSettle')}</button>
@@ -1189,6 +1261,9 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
 
       {/* ── BODY ── */}
       <div className="game-body">
+        {/* LEFT: players panel */}
+        <PlayersStrip players={players} pique={pique} me={me} lang={lang} />
+
         {/* CENTER: player carton + prize buttons */}
         <div className="game-main">
           {/* Players see only last-drawn numbers, not a full list */}
@@ -1259,11 +1334,21 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
                 <div className="tw-title">{t(lang,'gameLog')}</div>
                 <div className="game-log">
                   {game.log.map(e => (
-                    <div key={e.id} className={`le le-${e.type}`}>
+                    <div key={e.id} className={`le le-${e.type === 'pique-tie' ? 'req' : e.type}`}>
                       <span>{e.msg}</span>
                       <div className="flex ac g6">
                         {e.type === 'req' && e.reqId && (
                           <button className="btn btn-green btn-sm" onClick={() => onValidate(e.reqId)}>✓</button>
+                        )}
+                        {e.type === 'pique-tie' && !pique.settled && (
+                          <>
+                            <button className="btn btn-gold btn-sm" style={{fontSize:'.65rem',padding:'3px 7px'}} onClick={() => piqueAction('split')}>
+                              {lang==='es'?'Dividir':'Split'}
+                            </button>
+                            <button className="btn btn-ghost btn-sm" style={{fontSize:'.65rem',padding:'3px 7px'}} onClick={() => piqueAction('keep')}>
+                              {lang==='es'?'Seguir':'Keep'}
+                            </button>
+                          </>
                         )}
                         <span className="le-ts">{e.ts}</span>
                       </div>
@@ -1306,6 +1391,13 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
           onValidate={reqId => { onValidate(reqId); setShowSnoop(false); }}
           onReject={reqId => { onReject(reqId); setShowSnoop(false); }}
         />
+      )}
+
+      {/* Leave game warning (MC only) */}
+      {showLeaveWarn && (
+        <LeaveGameModal lang={lang}
+          onConfirm={() => { setShowLeaveWarn(false); onLeave(); }}
+          onCancel={() => setShowLeaveWarn(false)} />
       )}
 
       {/* Tie Break Modal */}
@@ -1464,7 +1556,7 @@ function SettleView({ players, settings, game, stats, onNewRound, onBack, lang =
 }
 
 // ────────────────────────────────────────────────────────────
-// MAIN APP — State Machine
+// MAIN APP — State Machine (Supabase-backed multiplayer)
 // ────────────────────────────────────────────────────────────
 export default function App() {
   const [screen,       setScreen]       = useState('landing');
@@ -1473,6 +1565,7 @@ export default function App() {
   const [players,      setPlayers]      = useState([]);
   const [settings,     setSettings]     = useState(INIT_SETTINGS);
   const [game,         setGame]         = useState(INIT_GAME);
+  const [gameId,       setGameId]       = useState(null);
   const [pique,        setPique]        = useState(INIT_PIQUE);
   const [ann,          setAnn]          = useState(null);
   const [snoop,        setSnoop]        = useState(false);
@@ -1480,28 +1573,40 @@ export default function App() {
   const [stats,        setStats]        = useState({});
   const [showBalances, setShowBalances] = useState(false);
   const [lang,         setLang]         = useState('es');
-  const annTimer = useRef(null);
-  const settingsRef = useRef(settings);
-  settingsRef.current = settings;
-  const langRef = useRef(lang);
-  langRef.current = lang;
-  const piqueRef = useRef(pique);
-  piqueRef.current = pique;
-  const playersRef = useRef(players);
-  playersRef.current = players;
+  const [loading,      setLoading]      = useState(false);
+  const [joinError,    setJoinError]    = useState('');
+
+  const annTimer      = useRef(null);
+  const settingsRef   = useRef(settings);   settingsRef.current   = settings;
+  const langRef       = useRef(lang);       langRef.current       = lang;
+  const piqueRef      = useRef(pique);      piqueRef.current      = pique;
+  const playersRef    = useRef(players);    playersRef.current    = players;
+  const meRef         = useRef(me);         meRef.current         = me;
+  const gameRef       = useRef(game);       gameRef.current       = game;
+  const gameIdRef     = useRef(gameId);     gameIdRef.current     = gameId;
+  const roomRef       = useRef(room);       roomRef.current       = room;
 
   const toggleLang = useCallback(() => setLang(l => l === 'es' ? 'en' : 'es'), []);
 
-  // Read room code from URL path (e.g. /ABC123) and pre-fill the join form
+  // URL pre-fill: read room code from path (e.g. /ABC123)
   const urlCode = window.location.pathname.slice(1).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   const initialCode = urlCode.length === 6 ? urlCode : '';
+  useEffect(() => { if (initialCode) window.history.replaceState(null, '', '/'); }, [initialCode]);
 
-  // Clear the URL path once read so it doesn't linger
+  // Heartbeat: keep last_seen fresh so others can tell we're connected
   useEffect(() => {
-    if (initialCode) window.history.replaceState(null, '', '/');
-  }, [initialCode]);
+    if (!me?.id) return;
+    const ping = async () => {
+      const ts = new Date().toISOString();
+      await supabase.from('players').update({ last_seen: ts }).eq('id', me.id);
+      setPlayers(prev => prev.map(p => p.id === me.id ? { ...p, lastSeen: ts } : p));
+    };
+    ping(); // immediate on join
+    const t = setInterval(ping, 20000);
+    return () => clearInterval(t);
+  }, [me?.id]);
 
-  // ── Announcement system ──
+  // ── Announcement ──────────────────────────────────────────
   const announce = useCallback((type, msg, val = '', sub = '', dur = 3500) => {
     if (annTimer.current) clearTimeout(annTimer.current);
     setAnn({ type, msg, val, sub });
@@ -1509,247 +1614,497 @@ export default function App() {
     annTimer.current = setTimeout(() => setAnn(null), dur);
   }, []);
 
-  // ── CREATE ROOM (as MC) ──
-  const createRoom = useCallback(name => {
-    const code = genCode();
-    const id = 'mc-' + Date.now();
-    const mc = { id, name, isMC: true, cartonIdx: 0, skin: 'dot', marked: [], balance: 0 };
-    const demo = DEMO_PLAYERS.map(p => ({ ...p, id: p.id + '-' + Date.now(), marked: [], balance: 0 }));
-    setRoom({ code, name: `Sala de ${name}` });
-    setMe(mc);
-    setPlayers([mc, ...demo]);
-    setScreen('lobby');
-  }, []);
+  // ── Realtime subscription (set up once per room) ──────────
+  useEffect(() => {
+    if (!room?.code) return;
+    const code = room.code;
 
-  // ── JOIN ROOM (as Player) ──
-  const joinRoom = useCallback((code, name) => {
-    const id = 'p-' + Date.now();
-    const mc  = { id: 'mc-demo', name: 'Rafa (Animador)', isMC: true, cartonIdx: 0, skin: 'dot', marked: [], balance: 0 };
-    const demo = DEMO_PLAYERS.slice(0, 3).map(p => ({ ...p, id: p.id + '-j-' + Date.now(), marked: [], balance: 0 }));
-    const player = { id, name, isMC: false, cartonIdx: 6, skin: 'dot', marked: [], balance: 0 };
-    setRoom({ code: code.toUpperCase(), name: 'Sala de Rafa' });
-    setMe(player);
-    setPlayers([mc, ...demo, player]);
-    setScreen('lobby');
-  }, []);
+    const channel = supabase.channel(`room:${code}`)
 
-  // ── SELECT CARTON ──
-  const selectCarton = useCallback(idx => {
-    const taken = players.filter(p => p.id !== me.id).map(p => p.cartonIdx);
-    if (taken.includes(idx)) return;
-    const updated = { ...me, cartonIdx: idx, marked: [] };
-    setMe(updated);
-    setPlayers(prev => prev.map(p => p.id === me.id ? { ...p, cartonIdx: idx, marked: [] } : p));
-  }, [me, players]);
-
-  // ── SELECT SKIN ──
-  const selectSkin = useCallback(skin => {
-    setMe(prev => ({ ...prev, skin }));
-    setPlayers(prev => prev.map(p => p.id === me.id ? { ...p, skin } : p));
-  }, [me]);
-
-  // ── TRANSFER MC ──
-  const transferMC = useCallback(targetId => {
-    setPlayers(prev => prev.map(p =>
-      p.id === targetId ? { ...p, isMC: true } : p.isMC ? { ...p, isMC: false } : p
-    ));
-    setMe(prev => ({ ...prev, isMC: false }));
-  }, []);
-
-  // ── START GAME ──
-  const startGame = useCallback(() => {
-    // Track stats
-    setStats(prev => {
-      const next = { ...prev };
-      players.forEach(p => {
-        const e = next[p.name] || EMPTY_STAT;
-        next[p.name] = { ...e, gamesPlayed: e.gamesPlayed + 1, totalWagered: e.totalWagered + settings.apuesta };
-      });
-      return next;
-    });
-    setPlayers(prev => prev.map(p => {
-      let bal = p.balance - settings.apuesta;
-      if (pique.enabled && pique.participants.includes(p.id)) bal -= pique.stake;
-      return { ...p, balance: bal, marked: [] };
-    }));
-    setMe(prev => {
-      let bal = prev.balance - settings.apuesta;
-      if (pique.enabled && pique.participants.includes(prev.id)) bal -= pique.stake;
-      return { ...prev, marked: [], balance: bal };
-    });
-    if (pique.enabled && pique.participants.length > 0) {
-      setPique(prev => ({ ...prev, active: true }));
-    }
-    setGame({ ...INIT_GAME, status: 'active' });
-    setScreen('game');
-  }, [settings, players, pique]);
-
-  // ── DRAW NUMBER ──
-  const drawNumber = useCallback(() => {
-    setGame(prev => {
-      if (prev.status !== 'active') return prev;
-      const avail = Array.from({ length: 90 }, (_, i) => i + 1).filter(n => !prev.calledNumbers.includes(n));
-      if (!avail.length) return prev;
-      const num = avail[Math.floor(Math.random() * avail.length)];
-
-      // Auto-mark demo players
-      setPlayers(pp => pp.map(p => {
-        if (p.id === me.id) return p;
-        const carton = CARTONES[p.cartonIdx];
-        return carton.rows.some(row => row.includes(num)) ? { ...p, marked: [...p.marked, num] } : p;
-      }));
-
-      // Pique check — delayed 1700ms so it fires after the draw announcement clears
-      const pq = piqueRef.current;
-      if (pq.active && !pq.settled) {
-        const checkList = pq.tied.length > 0 ? pq.tied : pq.participants;
-        const hitIds = checkList.filter(pid => {
-          const p = playersRef.current.find(x => x.id === pid);
-          return p && CARTONES[p.cartonIdx].rows.some(row => row.includes(num));
-        });
-        if (hitIds.length > 0) {
-          setTimeout(() => {
-            const freshPique = piqueRef.current;
-            if (freshPique.settled) return; // already won by a prior number
-            if (hitIds.length === 1) {
-              const winner = playersRef.current.find(x => x.id === hitIds[0]);
-              const amount = freshPique.participants.length * freshPique.stake;
-              setPlayers(pp => pp.map(p => p.id === hitIds[0] ? { ...p, balance: p.balance + amount } : p));
-              if (hitIds[0] === me.id) setMe(m => ({ ...m, balance: m.balance + amount }));
-              announce('win', `¡${winner?.name} ${langRef.current === 'es' ? 'ganó El Pique' : 'won El Pique'}!`, '', fmtClp(amount), 5000);
-              setPique(prev => ({ ...prev, settled: true, active: false, tied: [], winner: { playerId: hitIds[0], playerName: winner?.name, amount } }));
-            } else {
-              setPique(prev => ({ ...prev, tied: hitIds }));
+      // ── Players changes ──
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'players', filter: `room_code=eq.${code}` },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const p = supaToPlayer(payload.new);
+            setPlayers(prev => prev.find(x => x.id === p.id) ? prev : [...prev, p]);
+          } else if (payload.eventType === 'UPDATE') {
+            const p = supaToPlayer(payload.new);
+            setPlayers(prev => prev.map(x => x.id === p.id ? p : x));
+            if (meRef.current && payload.new.id === meRef.current.id) {
+              setMe(prev => ({ ...prev, ...p }));
             }
-          }, 1700);
-        }
+          } else if (payload.eventType === 'DELETE') {
+            setPlayers(prev => prev.filter(x => x.id !== payload.old.id));
+          }
+        })
+
+      // ── Game changes ──
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `room_code=eq.${code}` },
+        (payload) => {
+          if (!payload.new || payload.new.status === 'settled') return;
+          const newGame = supaToGame(payload.new);
+          const prevGame = gameRef.current;
+
+          // Non-MC: react to draws and prizes via realtime
+          if (!meRef.current?.isMC) {
+            if (newGame.lastDrawn && newGame.lastDrawn !== prevGame.lastDrawn) {
+              announce('draw', `¡${newGame.lastDrawn}!`, newGame.lastDrawn, '', 1600);
+              setBallKey(k => k + 1);
+            }
+            ['terna','linea','lota'].forEach(type => {
+              if (newGame.prizes[type] && !prevGame.prizes[type]) {
+                announce('win', `¡${newGame.prizes[type].playerName} gana la ${type.toUpperCase()}!`, type, fmtClp(newGame.prizes[type].amount), 5500);
+              }
+            });
+            // New request from another player
+            newGame.requests.forEach(req => {
+              if (!prevGame.requests.find(r => r.id === req.id) && req.playerId !== meRef.current?.id) {
+                announce('request', `¡${req.playerName}!`, req.type, `Solicita ${req.type.toUpperCase()}`, 3000);
+              }
+            });
+          }
+
+          // Pique resolved externally
+          const newPs = payload.new.pique_state;
+          if (newPs?.settled && !piqueRef.current.settled) {
+            if (!meRef.current?.isMC) {
+              if (newPs.winner) announce('win', `¡${newPs.winner.playerName} ${langRef.current==='es'?'ganó El Pique':'won El Pique'}!`, '', fmtClp(newPs.winner.amount), 5000);
+            }
+            setPique(newPs);
+          }
+
+          setGame(newGame);
+          setGameId(payload.new.id);
+        })
+
+      // ── Room changes (settings, status) ──
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `code=eq.${code}` },
+        (payload) => {
+          const r = payload.new;
+          const { pique: savedPique, ...gameSettings } = r.settings;
+          setSettings(gameSettings);
+          // Sync pique config from room settings (MC writes it, everyone reads it)
+          if (savedPique) setPique(prev => ({ ...prev, ...savedPique }));
+          // Non-MC: follow room status to change screens
+          if (!meRef.current?.isMC) {
+            if (r.status === 'active'  && ['landing','lobby'].includes(screenRef.current)) setScreen('game');
+            if (r.status === 'lobby'   && screenRef.current === 'game')  { setGame(INIT_GAME); setPique(prev => ({...INIT_PIQUE, enabled:prev.enabled, stake:prev.stake})); setScreen('lobby'); }
+            if (r.status === 'settled' && screenRef.current === 'game')  setScreen('settle');
+          }
+        })
+
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [room?.code, announce]);
+
+  // Need a screenRef so the realtime closure can read current screen
+  const screenRef = useRef(screen); screenRef.current = screen;
+
+  // ── CREATE ROOM (MC) ─────────────────────────────────────
+  const createRoom = useCallback(async (name) => {
+    setLoading(true); setJoinError('');
+    try {
+      // Generate a code not already in DB
+      let code;
+      for (let i = 0; i < 10; i++) {
+        code = genCode();
+        const { data } = await supabase.from('rooms').select('code').eq('code', code).maybeSingle();
+        if (!data) break;
+      }
+      const id = 'mc-' + Date.now();
+      await supabase.from('rooms').insert({ code, settings: INIT_SETTINGS, status: 'lobby' });
+      await supabase.from('players').insert({
+        id, room_code: code, name, normalized_name: normalizeName(name),
+        is_mc: true, carton_idx: 0, skin: 'dot', marked: [], balance: 0,
+      });
+      window.history.pushState(null, '', `/${code}`);
+      const mc = { id, name, isMC: true, cartonIdx: 0, skin: 'dot', marked: [], balance: 0 };
+      setRoom({ code });
+      setMe(mc);
+      setPlayers([mc]);
+      setSettings(INIT_SETTINGS);
+      setScreen('lobby');
+    } catch (e) { setJoinError(lang === 'es' ? 'Error al crear la sala. Intenta de nuevo.' : 'Error creating room. Try again.'); }
+    finally { setLoading(false); }
+  }, [lang]);
+
+  // ── JOIN ROOM (Player) ────────────────────────────────────
+  const joinRoom = useCallback(async (code, name) => {
+    setLoading(true); setJoinError('');
+    try {
+      const { data: roomData } = await supabase.from('rooms').select('*').eq('code', code).maybeSingle();
+      if (!roomData) {
+        setJoinError(lang === 'es' ? 'Sala no encontrada. Revisa el código.' : 'Room not found. Check the code.');
+        setLoading(false); return;
+      }
+      const normalized = normalizeName(name);
+      // Reconnection: same normalized name in same room?
+      const { data: existing } = await supabase.from('players')
+        .select('*').eq('room_code', code).eq('normalized_name', normalized).maybeSingle();
+
+      let player;
+      if (existing) {
+        // Restore existing player
+        await supabase.from('players').update({ last_seen: new Date().toISOString() }).eq('id', existing.id);
+        player = supaToPlayer(existing);
+      } else {
+        // New player — find next free carton
+        const { data: taken } = await supabase.from('players').select('carton_idx').eq('room_code', code);
+        const takenIdxs = (taken || []).map(p => p.carton_idx);
+        const cartonIdx = Array.from({ length: 50 }, (_, i) => i).find(i => !takenIdxs.includes(i)) ?? 0;
+        const id = 'p-' + Date.now();
+        await supabase.from('players').insert({
+          id, room_code: code, name, normalized_name: normalized,
+          is_mc: false, carton_idx: cartonIdx, skin: 'dot', marked: [], balance: 0,
+        });
+        player = { id, name, isMC: false, cartonIdx, skin: 'dot', marked: [], balance: 0 };
       }
 
-      const entry = { id: Date.now() + '', ts: tstamp(), msg: `Salió el ${num}`, type: 'draw' };
-      announce('draw', `¡${num}!`, num, '', 1600);
-      setBallKey(k => k + 1);
-      return { ...prev, calledNumbers: [...prev.calledNumbers, num], lastDrawn: num, log: [entry, ...prev.log] };
-    });
-  }, [me, announce]);
+      // Load current players + active game
+      const { data: allPlayers } = await supabase.from('players').select('*').eq('room_code', code);
+      const { data: activeGame } = await supabase.from('games')
+        .select('*').eq('room_code', code).eq('status', 'active').maybeSingle();
 
-  // ── TOGGLE MARK ──
-  const toggleMark = useCallback(num => {
-    if (num === 0) return;
-    setMe(prev => {
-      if (game.status !== 'active') return prev;
-      const nm = prev.marked.includes(num)
-        ? prev.marked.filter(n => n !== num)
-        : [...prev.marked, num];
-      setPlayers(pp => pp.map(p => p.id === prev.id ? { ...p, marked: nm } : p));
-      return { ...prev, marked: nm };
-    });
-  }, [game.status]);
+      window.history.pushState(null, '', `/${code}`);
+      const { pique: savedPique, ...gameSettings } = roomData.settings;
+      setSettings(gameSettings);
+      if (savedPique) setPique(prev => ({ ...prev, ...savedPique }));
+      setRoom({ code });
+      setMe(player);
+      setPlayers((allPlayers || []).map(supaToPlayer));
+      if (activeGame) {
+        setGame(supaToGame(activeGame));
+        setGameId(activeGame.id);
+        if (activeGame.pique_state) setPique(activeGame.pique_state);
+        setScreen('game');
+      } else {
+        setScreen('lobby');
+      }
+    } catch (e) { setJoinError(lang === 'es' ? 'Error al unirse. Intenta de nuevo.' : 'Error joining. Try again.'); }
+    finally { setLoading(false); }
+  }, [lang]);
 
-  // ── CLAIM PRIZE (player requests) ──
-  const claimPrize = useCallback(type => {
+  // ── SELECT CARTON ─────────────────────────────────────────
+  const selectCarton = useCallback(async (idx) => {
+    const taken = players.filter(p => p.id !== me.id).map(p => p.cartonIdx);
+    if (taken.includes(idx)) return;
+    setMe(prev => ({ ...prev, cartonIdx: idx, marked: [] }));
+    setPlayers(prev => prev.map(p => p.id === me.id ? { ...p, cartonIdx: idx, marked: [] } : p));
+    await supabase.from('players').update({ carton_idx: idx, marked: [] }).eq('id', me.id);
+  }, [me, players]);
+
+  // ── SELECT SKIN ───────────────────────────────────────────
+  const selectSkin = useCallback(async (skin) => {
+    setMe(prev => ({ ...prev, skin }));
+    setPlayers(prev => prev.map(p => p.id === me.id ? { ...p, skin } : p));
+    await supabase.from('players').update({ skin }).eq('id', me.id);
+  }, [me]);
+
+  // ── SETTINGS (MC writes to DB) ────────────────────────────
+  const handleSettings = useCallback(async (newSettings) => {
+    setSettings(newSettings);
+    // Preserve pique in settings so it stays synced
+    if (room?.code) await supabase.from('rooms').update({ settings: { ...newSettings, pique: piqueRef.current } }).eq('code', room.code);
+  }, [room]);
+
+  // ── PIQUE (MC writes to DB so all players see it) ─────────
+  const handlePique = useCallback(async (newPique) => {
+    setPique(newPique);
+    if (room?.code) await supabase.from('rooms').update({ settings: { ...settingsRef.current, pique: newPique } }).eq('code', room.code);
+  }, [room]);
+
+  // ── TRANSFER MC ───────────────────────────────────────────
+  const transferMC = useCallback(async (targetId) => {
+    setPlayers(prev => prev.map(p => p.id === targetId ? { ...p, isMC: true } : p.isMC ? { ...p, isMC: false } : p));
+    setMe(prev => ({ ...prev, isMC: false }));
+    await Promise.all([
+      supabase.from('players').update({ is_mc: false }).eq('id', me.id),
+      supabase.from('players').update({ is_mc: true  }).eq('id', targetId),
+    ]);
+  }, [me]);
+
+  // ── START GAME ────────────────────────────────────────────
+  const startGame = useCallback(async () => {
+    setLoading(true);
+    try {
+      const gId = 'g-' + Date.now();
+      const piqueForGame = pique.enabled && pique.participants.length > 0
+        ? { ...pique, active: true }
+        : { ...INIT_PIQUE, enabled: false };
+
+      await supabase.from('games').insert({
+        id: gId, room_code: room.code, called_numbers: [], last_drawn: null,
+        prizes: { terna: null, linea: null, lota: null },
+        requests: [], log: [], pique_state: piqueForGame, status: 'active',
+      });
+
+      // Deduct balances, reset marks
+      await Promise.all(players.map(p => {
+        let balance = p.balance - settings.apuesta;
+        if (pique.enabled && pique.participants.includes(p.id)) balance -= pique.stake;
+        return supabase.from('players').update({ balance, marked: [] }).eq('id', p.id);
+      }));
+
+      await supabase.from('rooms').update({ status: 'active', last_activity: new Date().toISOString() }).eq('code', room.code);
+
+      // Track stats locally
+      setStats(prev => {
+        const next = { ...prev };
+        players.forEach(p => { const e = next[p.name] || EMPTY_STAT; next[p.name] = { ...e, gamesPlayed: e.gamesPlayed+1, totalWagered: e.totalWagered+settings.apuesta }; });
+        return next;
+      });
+
+      // MC: update local state immediately
+      setPlayers(prev => prev.map(p => { let bal = p.balance - settings.apuesta; if (pique.enabled && pique.participants.includes(p.id)) bal -= pique.stake; return { ...p, balance: bal, marked: [] }; }));
+      setMe(prev => { let bal = prev.balance - settings.apuesta; if (pique.enabled && pique.participants.includes(prev.id)) bal -= pique.stake; return { ...prev, marked: [], balance: bal }; });
+      if (piqueForGame.active) setPique(piqueForGame);
+      setGame({ ...INIT_GAME, status: 'active' });
+      setGameId(gId);
+      setScreen('game');
+    } catch(e) { console.error('startGame error', e); }
+    finally { setLoading(false); }
+  }, [room, settings, players, pique]);
+
+  // ── DRAW NUMBER ───────────────────────────────────────────
+  const drawNumber = useCallback(async () => {
+    if (game.status !== 'active') return;
+    const avail = Array.from({ length: 90 }, (_, i) => i + 1).filter(n => !game.calledNumbers.includes(n));
+    if (!avail.length) return;
+    const num = avail[Math.floor(Math.random() * avail.length)];
+
+    const newCalled = [...game.calledNumbers, num];
+    const entry = { id: Date.now() + '', ts: tstamp(), msg: `Salió el ${num}`, type: 'draw' };
+    const newLog = [entry, ...game.log];
+
+    // MC: update local state immediately for responsiveness
+    setGame(prev => ({ ...prev, calledNumbers: newCalled, lastDrawn: num, log: newLog }));
+    announce('draw', `¡${num}!`, num, '', 1600);
+    setBallKey(k => k + 1);
+
+    // Write to DB — realtime notifies all other players
+    await supabase.from('games')
+      .update({ called_numbers: newCalled, last_drawn: num, log: newLog })
+      .eq('id', gameIdRef.current);
+
+    // Pique check — delayed so draw announcement clears first
+    const pq = piqueRef.current;
+    if (pq.active && !pq.settled) {
+      const checkList = pq.tied.length > 0 ? pq.tied : pq.participants;
+      const hitIds = checkList.filter(pid => {
+        const p = playersRef.current.find(x => x.id === pid);
+        return p && CARTONES[p.cartonIdx].rows.some(row => row.includes(num));
+      });
+      if (hitIds.length > 0) {
+        setTimeout(async () => {
+          const freshPique = piqueRef.current;
+          if (freshPique.settled) return;
+          const currentLog = gameRef.current.log;
+          const es = langRef.current === 'es';
+          if (hitIds.length === 1) {
+            const winner = playersRef.current.find(x => x.id === hitIds[0]);
+            const amount = freshPique.participants.length * freshPique.stake;
+            const newPiqueState = { ...freshPique, settled: true, active: false, tied: [], winner: { playerId: hitIds[0], playerName: winner?.name, amount } };
+            const logEntry = { id: Date.now()+'', ts: tstamp(), msg: `⚡ ${winner?.name} ${es?'ganó El Pique':'won El Pique'} — ${fmtClp(amount)}`, type: 'win' };
+            const newLog = [logEntry, ...currentLog];
+            setPique(newPiqueState);
+            setGame(prev => ({ ...prev, log: newLog }));
+            setPlayers(pp => pp.map(p => p.id === hitIds[0] ? { ...p, balance: p.balance + amount } : p));
+            if (hitIds[0] === meRef.current?.id) setMe(m => ({ ...m, balance: m.balance + amount }));
+            announce('win', `¡${winner?.name} ${es?'ganó El Pique':'won El Pique'}!`, '', fmtClp(amount), 5000);
+            await Promise.all([
+              supabase.from('games').update({ pique_state: newPiqueState, log: newLog }).eq('id', gameIdRef.current),
+              supabase.from('players').update({ balance: (winner?.balance ?? 0) + amount }).eq('id', hitIds[0]),
+            ]);
+          } else {
+            // Tie — write to log and DB so all players see it
+            const names = hitIds.map(id => playersRef.current.find(p=>p.id===id)?.name).filter(Boolean).join(' y ');
+            const tieEntry = { id: Date.now()+'', ts: tstamp(), msg: `⚡ ${es?'Empate en El Pique':'El Pique tie'}: ${names}`, type: 'pique-tie', tiedIds: hitIds };
+            const newLog = [tieEntry, ...currentLog];
+            setPique(prev => ({ ...prev, tied: hitIds }));
+            setGame(prev => ({ ...prev, log: newLog }));
+            await supabase.from('games').update({ log: newLog }).eq('id', gameIdRef.current);
+          }
+        }, 1700);
+      }
+    }
+  }, [game, announce]);
+
+  // ── TOGGLE MARK ───────────────────────────────────────────
+  const toggleMark = useCallback(async (num) => {
+    if (!num || game.status !== 'active') return;
+    const nm = me.marked.includes(num) ? me.marked.filter(n => n !== num) : [...me.marked, num];
+    setMe(prev => ({ ...prev, marked: nm }));
+    setPlayers(pp => pp.map(p => p.id === me.id ? { ...p, marked: nm } : p));
+    await supabase.from('players').update({ marked: nm }).eq('id', me.id);
+  }, [me, game.status]);
+
+  // ── CLAIM PRIZE ───────────────────────────────────────────
+  const claimPrize = useCallback(async (type) => {
     if (!me || game.status !== 'active') return;
     if (game.prizes[type]) return;
     if (type === 'linea' && !game.prizes.terna) return;
     if (type === 'lota'  && !game.prizes.linea) return;
-    const carton = CARTONES[me.cartonIdx];
-    if (!canReq(type, carton, me.marked)) return;
+    if (!canReq(type, CARTONES[me.cartonIdx], me.marked)) return;
 
     const reqId = Date.now() + '';
-    const req = { id: reqId, playerId: me.id, playerName: me.name, type, ts: tstamp() };
+    const req   = { id: reqId, playerId: me.id, playerName: me.name, type, ts: tstamp() };
     const entry = { id: reqId, ts: tstamp(), msg: `${me.name} grita ¡${type.toUpperCase()}!`, type: 'req', reqId };
-    setGame(prev => ({ ...prev, requests: [...prev.requests, req], log: [entry, ...prev.log] }));
+    const newRequests = [...game.requests, req];
+    const newLog      = [entry, ...game.log];
+
+    setGame(prev => ({ ...prev, requests: newRequests, log: newLog }));
     announce('request', `¡${me.name}!`, type, `Solicita ${type.toUpperCase()}`, 4000);
+    await supabase.from('games').update({ requests: newRequests, log: newLog }).eq('id', gameIdRef.current);
   }, [me, game, announce]);
 
-  // ── VALIDATE WIN (MC approves) ──
-  const validateWin = useCallback(reqId => {
-    const req = game.requests.find(r => r.id === reqId);
+  // ── VALIDATE WIN ──────────────────────────────────────────
+  const validateWin = useCallback(async (reqId) => {
+    const req    = game.requests.find(r => r.id === reqId);
     if (!req) return;
     const player = players.find(p => p.id === req.playerId);
     if (!player) return;
-    const carton = CARTONES[player.cartonIdx];
-    const valid = isValid(req.type, carton, player.marked, game.calledNumbers);
+    // Prize already taken by someone else → auto-reject to prevent overwriting
+    if (game.prizes[req.type]) {
+      const invEntry = { id: Date.now()+'', ts: tstamp(), msg: `✗ ${req.playerName} — ya fue reclamado por ${game.prizes[req.type].playerName}`, type: 'inv' };
+      const newReqs  = game.requests.filter(r => r.id !== reqId);
+      const newLog   = [invEntry, ...game.log];
+      setGame(prev => ({ ...prev, requests: newReqs, log: newLog }));
+      announce('invalid', `Ya reclamado!`, '', `${game.prizes[req.type].playerName} ya ganó la ${req.type.toUpperCase()}`, 2500);
+      await supabase.from('games').update({ requests: newReqs, log: newLog }).eq('id', gameIdRef.current);
+      return;
+    }
+    const valid  = isValid(req.type, CARTONES[player.cartonIdx], player.marked, game.calledNumbers);
+    const newReqs = game.requests.filter(r => r.id !== reqId);
 
     if (valid) {
-      const total = calcPot(players.length, settings.apuesta);
+      const total  = calcPot(players.length, settings.apuesta);
       const pctMap = { terna: settings.ternaPct, linea: settings.lineaPct, lota: settings.lotaPct };
-      const amt = calcPrize(total, pctMap[req.type]);
-      const winEntry = { id: Date.now() + '', ts: tstamp(), msg: `✓ ${req.playerName} gana la ${req.type.toUpperCase()} — ${fmtClp(amt)}`, type: 'win' };
-      setGame(prev => ({
-        ...prev,
-        prizes: { ...prev.prizes, [req.type]: { playerId: req.playerId, playerName: req.playerName, amount: amt } },
-        requests: prev.requests.filter(r => r.id !== reqId),
-        log: [winEntry, ...prev.log],
-      }));
+      const amt    = calcPrize(total, pctMap[req.type]);
+      const winEntry = { id: Date.now()+'', ts: tstamp(), msg: `✓ ${req.playerName} gana la ${req.type.toUpperCase()} — ${fmtClp(amt)}`, type:'win' };
+      const newPrizes = { ...game.prizes, [req.type]: { playerId: req.playerId, playerName: req.playerName, amount: amt } };
+      const newLog    = [winEntry, ...game.log];
+
+      setGame(prev => ({ ...prev, prizes: newPrizes, requests: newReqs, log: newLog }));
       setPlayers(prev => prev.map(p => p.id === req.playerId ? { ...p, balance: p.balance + amt } : p));
       if (req.playerId === me.id) setMe(prev => ({ ...prev, balance: prev.balance + amt }));
-      // Track win in session stats
-      setStats(prev => {
-        const e = prev[req.playerName] || EMPTY_STAT;
-        return { ...prev, [req.playerName]: { ...e, wins: { ...e.wins, [req.type]: e.wins[req.type] + 1 } } };
-      });
+      setStats(prev => { const e = prev[req.playerName]||EMPTY_STAT; return {...prev,[req.playerName]:{...e,wins:{...e.wins,[req.type]:e.wins[req.type]+1}}}; });
       announce('win', `¡${req.playerName} gana la ${req.type.toUpperCase()}!`, req.type, fmtClp(amt), 5500);
+
+      await Promise.all([
+        supabase.from('games').update({ prizes: newPrizes, requests: newReqs, log: newLog }).eq('id', gameIdRef.current),
+        supabase.from('players').update({ balance: player.balance + amt }).eq('id', req.playerId),
+      ]);
     } else {
-      const invEntry = { id: Date.now() + '', ts: tstamp(), msg: `✗ Solicitud inválida de ${req.playerName}`, type: 'inv' };
-      setGame(prev => ({ ...prev, requests: prev.requests.filter(r => r.id !== reqId), log: [invEntry, ...prev.log] }));
+      const invEntry = { id: Date.now()+'', ts: tstamp(), msg: `✗ Solicitud inválida de ${req.playerName}`, type:'inv' };
+      const newLog = [invEntry, ...game.log];
+      setGame(prev => ({ ...prev, requests: newReqs, log: newLog }));
       announce('invalid', `¡Incorrecto, ${req.playerName}!`, '', 'Las marcas no coinciden con los cantados', 3000);
+      await supabase.from('games').update({ requests: newReqs, log: newLog }).eq('id', gameIdRef.current);
     }
   }, [game, players, me, settings, announce]);
 
-  // ── REJECT REQUEST (MC dismisses without validating) ──
-  const rejectRequest = useCallback(reqId => {
-    const req = game.requests.find(r => r.id === reqId);
+  // ── REJECT REQUEST ────────────────────────────────────────
+  const rejectRequest = useCallback(async (reqId) => {
+    const req  = game.requests.find(r => r.id === reqId);
     if (!req) return;
-    const entry = { id: Date.now() + '', ts: tstamp(), msg: `✗ ${req.playerName} — solicitud rechazada`, type: 'inv' };
-    setGame(prev => ({ ...prev, requests: prev.requests.filter(r => r.id !== reqId), log: [entry, ...prev.log] }));
-    announce('invalid', `¡Rechazado!`, '', `${req.playerName} — ${req.type.toUpperCase()}`, 2500);
+    const entry   = { id: Date.now()+'', ts: tstamp(), msg: `✗ ${req.playerName} — solicitud rechazada`, type:'inv' };
+    const newReqs = game.requests.filter(r => r.id !== reqId);
+    const newLog  = [entry, ...game.log];
+    setGame(prev => ({ ...prev, requests: newReqs, log: newLog }));
+    announce('invalid', '¡Rechazado!', '', `${req.playerName} — ${req.type.toUpperCase()}`, 2500);
+    await supabase.from('games').update({ requests: newReqs, log: newLog }).eq('id', gameIdRef.current);
   }, [game, announce]);
 
-  // ── PIQUE TIE ACTION ──
-  const piqueAction = useCallback(action => {
-    setPique(prev => {
-      if (action === 'split') {
-        const amount = prev.participants.length * prev.stake;
-        const perPlayer = Math.floor(amount / prev.tied.length);
-        prev.tied.forEach(pid => {
-          setPlayers(pp => pp.map(p => p.id === pid ? { ...p, balance: p.balance + perPlayer } : p));
-          if (pid === me.id) setMe(m => ({ ...m, balance: m.balance + perPlayer }));
-        });
-        return { ...prev, settled: true, active: false, tied: [], winner: { playerName: `${prev.tied.length} ${langRef.current==='es'?'jugadores':'players'}`, amount } };
-      }
-      // keep — narrow participants to only the tied players
-      return { ...prev, participants: prev.tied, tied: [] };
-    });
-  }, [me]);
-
-  // ── NEW ROUND ──
-  const newRound = useCallback(() => {
-    setPique(prev => ({ ...INIT_PIQUE, enabled: prev.enabled, stake: prev.stake }));
-    setGame(INIT_GAME);
-    setScreen('lobby');
+  // ── PIQUE TIE ACTION ──────────────────────────────────────
+  const piqueAction = useCallback(async (action) => {
+    const pq  = piqueRef.current;
+    const es  = langRef.current === 'es';
+    const currentLog = gameRef.current.log;
+    if (action === 'split') {
+      const amount    = pq.participants.length * pq.stake;
+      const perPlayer = Math.floor(amount / pq.tied.length);
+      const names     = pq.tied.map(id => playersRef.current.find(p=>p.id===id)?.name).filter(Boolean).join(es?' y ':' & ');
+      const newPs     = { ...pq, settled: true, active: false, tied: [], winner: { playerName: names, amount } };
+      const logEntry  = { id: Date.now()+'', ts: tstamp(), msg: `⚡ ${es?'Empate resuelto':'Tie resolved'}: ${names} ${es?'dividieron el Pique':'split El Pique'} — ${fmtClp(perPlayer)} ${es?'c/u':'each'}`, type: 'win' };
+      const newLog    = [logEntry, ...currentLog];
+      setPique(newPs);
+      setGame(prev => ({ ...prev, log: newLog }));
+      pq.tied.forEach(async pid => {
+        const p = playersRef.current.find(x => x.id === pid);
+        if (!p) return;
+        setPlayers(pp => pp.map(x => x.id === pid ? { ...x, balance: x.balance + perPlayer } : x));
+        if (pid === meRef.current?.id) setMe(m => ({ ...m, balance: m.balance + perPlayer }));
+        await supabase.from('players').update({ balance: p.balance + perPlayer }).eq('id', pid);
+      });
+      await supabase.from('games').update({ pique_state: newPs, log: newLog }).eq('id', gameIdRef.current);
+    } else {
+      // keep drawing — narrow to tied players
+      const names  = pq.tied.map(id => playersRef.current.find(p=>p.id===id)?.name).filter(Boolean).join(es?' y ':' & ');
+      const newPs  = { ...pq, participants: pq.tied, tied: [] };
+      const logEntry = { id: Date.now()+'', ts: tstamp(), msg: `⚡ ${es?'Pique continúa entre':'Pique continues between'}: ${names}`, type: 'req' };
+      const newLog = [logEntry, ...currentLog];
+      setPique(newPs);
+      setGame(prev => ({ ...prev, log: newLog }));
+      await supabase.from('games').update({ pique_state: newPs, log: newLog }).eq('id', gameIdRef.current);
+    }
   }, []);
 
+  // ── NEW ROUND ─────────────────────────────────────────────
+  const newRound = useCallback(async () => {
+    setPique(INIT_PIQUE);
+    setGame(INIT_GAME);
+    setGameId(null);
+    if (room?.code) {
+      await supabase.from('games').update({ status: 'settled' }).eq('id', gameIdRef.current);
+      // Reset pique in room settings so all players see it disabled
+      await supabase.from('rooms').update({
+        status: 'lobby',
+        last_activity: new Date().toISOString(),
+        settings: { ...settingsRef.current, pique: INIT_PIQUE },
+      }).eq('code', room.code);
+    }
+    setScreen('lobby');
+  }, [room]);
+
+  // ── LEAVE GAME → LOBBY ────────────────────────────────────
+  const leaveToLobby = useCallback(async () => {
+    setGame(INIT_GAME);
+    setPique(INIT_PIQUE);
+    if (me?.isMC && room?.code) {
+      await supabase.from('rooms').update({
+        status: 'lobby',
+        settings: { ...settingsRef.current, pique: INIT_PIQUE },
+      }).eq('code', room.code);
+    }
+    setScreen('lobby');
+  }, [me, room]);
+
   // ────────────────────────────────────────────────────────
+  const errMsg = lang === 'es' ? 'Error de conexión' : 'Connection error';
+
   return (
     <div className="la">
       <style>{CSS}</style>
 
       {screen === 'landing' && (
-        <LandingView onCreate={createRoom} onJoin={joinRoom} lang={lang} onToggleLang={toggleLang} initialCode={initialCode} />
+        <LandingView onCreate={createRoom} onJoin={joinRoom} lang={lang} onToggleLang={toggleLang}
+          initialCode={initialCode} loading={loading} joinError={joinError} />
       )}
 
       {screen === 'lobby' && (
         <LobbyView
           room={room} me={me} players={players} settings={settings}
-          onSettings={setSettings}
+          onSettings={handleSettings}
           onCarton={selectCarton}
           onSkin={selectSkin}
           onStart={startGame}
-          onBack={() => setScreen('landing')}
+          onBack={() => { window.history.pushState(null,'','/'); setScreen('landing'); }}
           onShowBalances={() => setShowBalances(true)}
           onTransferMC={transferMC}
-          pique={pique} onPique={setPique}
+          pique={pique} onPique={handlePique}
           lang={lang} onToggleLang={toggleLang}
+          loading={loading}
         />
       )}
 
@@ -1763,7 +2118,7 @@ export default function App() {
           onReject={rejectRequest}
           showSnoop={snoop} setShowSnoop={setSnoop}
           ballKey={ballKey}
-          onLeave={() => { setGame(INIT_GAME); setPique(prev => ({ ...INIT_PIQUE, enabled: prev.enabled, stake: prev.stake })); setScreen('lobby'); }}
+          onLeave={leaveToLobby}
           onSettle={() => setScreen('settle')}
           onShowBalances={() => setShowBalances(true)}
           pique={pique} piqueAction={piqueAction}
