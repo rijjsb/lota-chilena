@@ -830,7 +830,7 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
         <div className="lb-left">
           <div className="panel">
             <div className="panel-title">{t(lang,'playersInRoom')}</div>
-            {players.map(p => (
+            {[...players].sort((a,b) => a.cartonIdx - b.cartonIdx).map(p => (
               <div key={p.id} className="p-row">
                 <div className="pl-av-wrap">
                   <div className="p-av">{p.name[0].toUpperCase()}</div>
@@ -1134,7 +1134,7 @@ function PlayersStrip({ players, pique, me, lang }) {
   return (
     <div className="panel" style={{width:230,flexShrink:0,alignSelf:'flex-start'}}>
       <div className="panel-title">{lang==='es'?'Jugadores en sala':'Players'}</div>
-      {players.map(p => (
+      {[...players].sort((a,b) => a.cartonIdx - b.cartonIdx).map(p => (
         <div key={p.id} className="p-row">
           <div className="pl-av-wrap">
             <div className="p-av">{p.name[0].toUpperCase()}</div>
