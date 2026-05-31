@@ -5,6 +5,9 @@ import { useState, useCallback, useRef } from "react";
    Full-featured prototype — architecture ready for Supabase
 ═══════════════════════════════════════════════════════════════ */
 
+// How many past numbers non-MC players see (0 = none, 3 = default, 6 = max sensible)
+const VISIBLE_LAST_CALLS = 3;
+
 // ────────────────────────────────────────────────────────────
 // DATA
 // ────────────────────────────────────────────────────────────
@@ -62,12 +65,14 @@ const CARTONES = [
 ];
 
 const SKINS = [
-  {id:'dot',   label:'Clásico'},
-  {id:'bean',  label:'🫘'},
-  {id:'star',  label:'⭐'},
-  {id:'coin',  label:'🪙'},
-  {id:'x',     label:'✕'},
-  {id:'heart', label:'❤️'},
+  {id:'dot',    label:'Clásico',  img:null},
+  {id:'x',      label:'✕',        img:null},
+  {id:'poroto', label:'Poroto',   img:'/skins/Poroto1.jpg'},
+  {id:'peso',   label:'$1',       img:'/skins/peso1a.jpg'},
+  {id:'peso5',  label:'$5',       img:'/skins/peso5a.jpg'},
+  {id:'escudo', label:'Escudo',   img:'/skins/Escudo.jpg'},
+  {id:'lucas',  label:'20 Lucas', img:'/skins/20lucas.jpg'},
+  {id:'cheque', label:'Cheque',   img:'/skins/cheque.jpg'},
 ];
 
 const DEMO_PLAYERS = [
@@ -80,7 +85,8 @@ const DEMO_PLAYERS = [
 
 const COL_RANGES = ['1-9','10-19','20-29','30-39','40-49','50-59','60-69','70-79','80-90'];
 
-const INIT_SETTINGS = {apuesta:1000,ternaPct:10,lineaPct:25,lotaPct:65,currency:'CLP'};
+const INIT_SETTINGS = {apuesta:1000,ternaPct:10,lineaPct:25,lotaPct:65,currency:'CLP',soundMode:'default'};
+const INIT_PIQUE    = {enabled:false,stake:500,participants:[],active:false,settled:false,winner:null,tied:[]};
 const INIT_GAME = {
   status:'idle',
   calledNumbers:[],
@@ -89,6 +95,92 @@ const INIT_GAME = {
   requests:[],
   log:[],
 };
+
+// ────────────────────────────────────────────────────────────
+// TRANSLATIONS
+// ────────────────────────────────────────────────────────────
+const TR = {
+  tagline:        {es:'El bingo familiar chileno',              en:'The Chilean family bingo'},
+  createRoom:     {es:'Crear Sala',                             en:'Create Room'},
+  mcRoleDesc:     {es:'Sé el Animador. Canta los números y dirige el juego.', en:'Be the MC. Call numbers and run the game.'},
+  join:           {es:'Unirse',                                 en:'Join'},
+  joinRoleDesc:   {es:'Entra con el código que te compartió el Animador.', en:'Enter the code shared by the MC.'},
+  roomCode:       {es:'Código de sala',                         en:'Room code'},
+  yourName:       {es:'Tu nombre',                              en:'Your name'},
+  createBtn:      {es:'CREAR SALA →',                          en:'CREATE ROOM →'},
+  joinBtn:        {es:'UNIRSE →',                              en:'JOIN →'},
+  offlineNote:    {es:'Demo offline · Próximamente multijugador real vía Supabase', en:'Offline demo · Real multiplayer coming via Supabase'},
+  playersInRoom:  {es:'Jugadores en sala',                      en:'Players in room'},
+  estimatedPot:   {es:'Pozo estimado',                          en:'Estimated pot'},
+  gameConfig:     {es:'Configuración del juego',                en:'Game settings'},
+  bet:            {es:'Apuesta (CLP)',                          en:'Stake (CLP)'},
+  chooseCarton:   {es:'Elige tu Cartón',                        en:'Choose your card'},
+  markerSkin:     {es:'Marcador (Skin)',                        en:'Marker (Skin)'},
+  soundSettings:  {es:'Sonidos',                                en:'Sounds'},
+  classicTones:   {es:'Tonos clásicos',                         en:'Classic tones'},
+  chileanSounds:  {es:'Sonidos chilenos',                       en:'Chilean sounds'},
+  soundsHint:     {es:'Para sonidos 1–90 coloca archivos 1.mp3…90.mp3 en public/sounds/', en:'For 1–90 sounds add files 1.mp3…90.mp3 in public/sounds/'},
+  startGame:      {es:'¡COMENZAR PARTIDA!',                     en:'START GAME!'},
+  waitingMC:      {es:'Esperando que el Animador inicie la partida…', en:'Waiting for MC to start…'},
+  balances:       {es:'💰 Balances',                            en:'💰 Balances'},
+  leaveRoom:      {es:'← Salir',                               en:'← Exit'},
+  lobby:          {es:'Lobby',                                  en:'Lobby'},
+  // Pique
+  pique:          {es:'El Pique',                               en:'El Pique'},
+  piqueDesc:      {es:'El primer jugador al que le caiga un número en su cartón gana.', en:'First player to have a called number land on their card wins.'},
+  piqueEnable:    {es:'Activar El Pique',                       en:'Enable El Pique'},
+  piqueDisable:   {es:'Desactivar El Pique',                    en:'Disable El Pique'},
+  piqueStake:     {es:'Apuesta del Pique (CLP)',                en:'Pique stake (CLP)'},
+  piqueOptIn:     {es:'Entrar al Pique',                        en:'Join the Pique'},
+  piqueOptOut:    {es:'Salir del Pique',                        en:'Leave the Pique'},
+  piquePartic:    {es:'Participantes',                          en:'Participants'},
+  piqueTie:       {es:'¡Empate en El Pique!',                   en:'El Pique Tie!'},
+  piqueTieSub:    {es:'¿Qué hacemos?',                         en:'What do we do?'},
+  piqueSplit:     {es:'Dividir el pozo',                        en:'Split the pot'},
+  piqueKeepDraw:  {es:'Seguir sacando',                         en:'Keep drawing'},
+  piqueWon:       {es:'ganó El Pique',                          en:'won El Pique'},
+  piqueActive:    {es:'Pique activo',                           en:'Pique active'},
+  piqueSettled:   {es:'Pique resuelto',                         en:'Pique settled'},
+  // Game
+  lastCalled:     {es:'Últimos cantados',                       en:'Last called'},
+  callNumber:     {es:'🎱 CANTAR NÚMERO',                      en:'🎱 CALL NUMBER'},
+  mcControl:      {es:'Control del Animador',                   en:'MC Control'},
+  remaining:      {es:'números restantes',                      en:'numbers remaining'},
+  gamePlayers:    {es:'Jugadores',                              en:'Players'},
+  gameLog:        {es:'Registro de partida',                    en:'Game log'},
+  table:          {es:'Tabla 1–90',                             en:'Table 1–90'},
+  finalSettle:    {es:'🏆 Cierre Final',                        en:'🏆 Final Settlement'},
+  // Settlement
+  settleTitle:    {es:'Cierre',                                 en:'Settlement'},
+  newRound:       {es:'🎉 Nueva Ronda',                         en:'🎉 New Round'},
+  backBtn:        {es:'← Volver',                              en:'← Back'},
+  prizeThisRound: {es:'Premios de esta partida — Pozo:',        en:'Prizes this round — Pot:'},
+  sessionHistory: {es:'Historial de sesión completo',           en:'Full session history'},
+  // Balances modal
+  sessionBal:     {es:'Balances de Sesión',                     en:'Session Balances'},
+  closeBnt:       {es:'✕ Cerrar',                              en:'✕ Close'},
+  curPrizes:      {es:'Premios de la partida actual',           en:'Current game prizes'},
+  sessionAll:     {es:'Historial de sesión — todas las partidas', en:'Session history — all games'},
+  balNote:        {es:'Balances acumulados. Saldo = premios ganados − apuestas totales.', en:'Running balances. Balance = prizes won − total wagered.'},
+  // Snoop modal
+  overviewTitle:  {es:'Vista General',                          en:'Overview'},
+  pendingReqs:    {es:'Solicitudes pendientes',                 en:'Pending requests'},
+  demoNote:       {es:'Modo demo: Los otros jugadores marcan automáticamente. En la versión real cada jugador marca en su dispositivo.', en:'Demo mode: Other players mark automatically. In the real version each player marks on their own device.'},
+  // MC transfer
+  transferTitle:  {es:'Transferir Animador',                    en:'Transfer MC Role'},
+  transferConfirm:{es:'¿Pasar el control de Animador a',        en:'Transfer MC role to'},
+  transferWarning:{es:'Tu cartón se queda contigo. Solo el rol de Animador cambia.', en:'Your card stays yours. Only the MC role transfers.'},
+  transferNo:     {es:'← No, quedarme',                        en:'← No, stay'},
+  transferYes:    {es:'Sí, transferir',                        en:'Yes, transfer'},
+  // Stats table
+  stPlayer:       {es:'Jugador',  en:'Player'},
+  stGames:        {es:'Partidas', en:'Games'},
+  stBet:          {es:'Apostado', en:'Wagered'},
+  stBalance:      {es:'Saldo',    en:'Balance'},
+  // pct warnings
+  pctWarn:        {es:'⚠ Los porcentajes deben sumar 100% (actual:', en:'⚠ Percentages must add up to 100% (current:'},
+};
+const t = (lang, key) => TR[key]?.[lang] ?? TR[key]?.es ?? key;
 
 // ────────────────────────────────────────────────────────────
 // UTILS
@@ -124,7 +216,12 @@ const calcPrize = (p, pct)   => Math.floor(p * pct / 100);
 const fmtClp    = n          => `$${n.toLocaleString('es-CL')}`;
 const tstamp    = ()         => new Date().toLocaleTimeString('es-CL', {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
 
-const playTone = type => {
+const playTone = (type, mode = 'default') => {
+  if (mode === 'chilean') {
+    const map = { draw:'/sounds/pop.mp3', win:'/sounds/win.mp3', invalid:'/sounds/alert.mp3', request:'/sounds/alert.mp3' };
+    try { const a = new Audio(map[type] ?? map.draw); a.play().catch(() => {}); } catch(e) {}
+    return;
+  }
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const note = (f, s, d, shape = 'sine') => {
@@ -431,14 +528,23 @@ html,body{height:100%}
 // COMPONENTS
 // ────────────────────────────────────────────────────────────
 
+// Language toggle button shown on every screen
+function LangToggle({ lang, onToggle }) {
+  return (
+    <button onClick={onToggle}
+      title={lang === 'es' ? 'Switch to English' : 'Cambiar a Español'}
+      style={{background:'transparent',border:'1px solid rgba(212,82,42,.28)',borderRadius:8,padding:'5px 9px',cursor:'pointer',fontSize:'1.15rem',lineHeight:1,flexShrink:0}}>
+      {lang === 'es' ? '🇨🇱' : '🇳🇿'}
+    </button>
+  );
+}
+
 // Skin marker rendered inside a carton cell
 function Marker({ skin }) {
-  if (skin === 'dot')   return <div className="mk-dot" />;
-  if (skin === 'x')     return <span className="mk-x">✕</span>;
-  if (skin === 'bean')  return <span>🫘</span>;
-  if (skin === 'star')  return <span>⭐</span>;
-  if (skin === 'coin')  return <span>🪙</span>;
-  if (skin === 'heart') return <span>❤️</span>;
+  const s = SKINS.find(x => x.id === skin);
+  if (s?.img) return <img src={s.img} alt={s.label} style={{width:'80%',height:'80%',objectFit:'cover',borderRadius:'50%'}} />;
+  if (skin === 'dot') return <div className="mk-dot" />;
+  if (skin === 'x')   return <span className="mk-x">✕</span>;
   return <div className="mk-dot" />;
 }
 
@@ -510,30 +616,33 @@ function MiniCarton({ carton, marked = [], calledNums = [] }) {
 // ────────────────────────────────────────────────────────────
 // LANDING
 // ────────────────────────────────────────────────────────────
-function LandingView({ onCreate, onJoin }) {
+function LandingView({ onCreate, onJoin, lang, onToggleLang }) {
   const [cName, setCName] = useState('');
   const [jCode, setJCode] = useState('');
   const [jName, setJName] = useState('');
 
   return (
     <div className="landing">
+      <div style={{position:'absolute',top:16,right:16}}>
+        <LangToggle lang={lang} onToggle={onToggleLang} />
+      </div>
       <div className="hero">
         <div className="logo-txt">LOTA</div>
-        <p className="tagline">El bingo familiar chileno</p>
+        <p className="tagline">{t(lang,'tagline')}</p>
       </div>
 
       <div className="cards-wrap">
         <div className="lc">
           <div className="lc-icon">🎉</div>
-          <h2>Crear Sala</h2>
-          <p>Sé el Animador. Canta los números y dirige el juego.</p>
+          <h2>{t(lang,'createRoom')}</h2>
+          <p>{t(lang,'mcRoleDesc')}</p>
           <div className="fld">
-            <label className="lbl">Tu nombre</label>
+            <label className="lbl">{t(lang,'yourName')}</label>
             <input className="inp" value={cName} onChange={e => setCName(e.target.value)}
               placeholder="Ej: Felipe Humberto Camiroaga Fernández" onKeyDown={e => e.key === 'Enter' && cName.trim() && onCreate(cName.trim())} />
           </div>
           <button className="btn btn-gold btn-xl btn-block" disabled={!cName.trim()} onClick={() => onCreate(cName.trim())}>
-            CREAR SALA →
+            {t(lang,'createBtn')}
           </button>
         </div>
 
@@ -541,27 +650,52 @@ function LandingView({ onCreate, onJoin }) {
 
         <div className="lc">
           <div className="lc-icon">🎯</div>
-          <h2>Unirse</h2>
-          <p>Entra con el código que te compartió el Animador.</p>
+          <h2>{t(lang,'join')}</h2>
+          <p>{t(lang,'joinRoleDesc')}</p>
           <div className="fld">
-            <label className="lbl">Código de sala</label>
+            <label className="lbl">{t(lang,'roomCode')}</label>
             <input className="inp inp-code" value={jCode}
               onChange={e => setJCode(e.target.value.toUpperCase().slice(0, 6))}
               placeholder="ABC123" maxLength={6} />
           </div>
           <div className="fld">
-            <label className="lbl">Tu nombre</label>
+            <label className="lbl">{t(lang,'yourName')}</label>
             <input className="inp" value={jName} onChange={e => setJName(e.target.value)} placeholder="Ej: Felipe Humberto Camiroaga Fernández" />
           </div>
           <button className="btn btn-red btn-xl btn-block"
             disabled={jCode.length < 6 || !jName.trim()}
             onClick={() => onJoin(jCode, jName.trim())}>
-            UNIRSE →
+            {t(lang,'joinBtn')}
           </button>
         </div>
       </div>
 
-      <p className="xs dim tc">Demo offline · Próximamente con multijugador real vía Supabase</p>
+      <p className="xs dim tc">{t(lang,'offlineNote')}</p>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
+// TRANSFER MODAL
+// ────────────────────────────────────────────────────────────
+function TransferModal({ targetName, onConfirm, onCancel, lang }) {
+  return (
+    <div className="modal-bg" onClick={onCancel}>
+      <div className="modal-box" style={{maxWidth:420}} onClick={e => e.stopPropagation()}>
+        <div className="modal-hdr">
+          <h2>🎤 {t(lang,'transferTitle')}</h2>
+        </div>
+        <div className="modal-body">
+          <p style={{fontSize:'1rem',fontWeight:700,lineHeight:1.5}}>
+            {t(lang,'transferConfirm')} <span style={{color:'#E8B84B'}}>{targetName}</span>?
+          </p>
+          <p className="xs dim mt8">{t(lang,'transferWarning')}</p>
+          <div className="flex g10 mt12" style={{justifyContent:'space-between',alignItems:'center'}}>
+            <button className="btn btn-ghost btn-sm" onClick={onConfirm}>{t(lang,'transferYes')}</button>
+            <button className="btn btn-gold btn-xl" onClick={onCancel}>{t(lang,'transferNo')}</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -569,10 +703,19 @@ function LandingView({ onCreate, onJoin }) {
 // ────────────────────────────────────────────────────────────
 // LOBBY
 // ────────────────────────────────────────────────────────────
-function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, onStart, onBack, onShowBalances }) {
-  const taken = players.filter(p => p.id !== me.id).map(p => p.cartonIdx);
+function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, onStart, onBack, onShowBalances, onTransferMC, pique, onPique, lang, onToggleLang }) {
+  const [transferTarget, setTransferTarget] = useState(null);
+  const taken  = players.filter(p => p.id !== me.id).map(p => p.cartonIdx);
   const pctSum = settings.ternaPct + settings.lineaPct + settings.lotaPct;
-  const total = calcPot(players.length, settings.apuesta);
+  const total  = calcPot(players.length, settings.apuesta);
+  const inPique = pique.participants.includes(me.id);
+
+  const togglePiqueParticipation = () => {
+    const next = inPique
+      ? pique.participants.filter(id => id !== me.id)
+      : [...pique.participants, me.id];
+    onPique({ ...pique, participants: next });
+  };
 
   return (
     <div className="lobby">
@@ -580,12 +723,13 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
         <div className="code-pill">
           <span className="code-lbl">Sala</span>
           <span className="code-val">{room.code}</span>
-          <span className="code-lbl">· {players.length} jugadores</span>
+          <span className="code-lbl">· {players.length} {lang==='es'?'jugadores':'players'}</span>
         </div>
         <div className="flex g8 ac">
           {me.isMC && <span className="chip chip-mc">Animador 🎤</span>}
-          <button className="btn btn-ghost btn-sm" onClick={onShowBalances}>💰 Balances</button>
-          <button className="btn btn-ghost btn-sm" onClick={onBack}>← Salir</button>
+          <button className="btn btn-ghost btn-sm" onClick={onShowBalances}>{t(lang,'balances')}</button>
+          <button className="btn btn-ghost btn-sm" onClick={onBack}>{t(lang,'leaveRoom')}</button>
+          <LangToggle lang={lang} onToggle={onToggleLang} />
         </div>
       </div>
 
@@ -593,22 +737,26 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
         {/* LEFT COLUMN */}
         <div className="lb-left">
           <div className="panel">
-            <div className="panel-title">Jugadores en sala</div>
+            <div className="panel-title">{t(lang,'playersInRoom')}</div>
             {players.map(p => (
               <div key={p.id} className="p-row">
                 <div className="p-av">{p.name[0].toUpperCase()}</div>
-                <span className="p-name">{p.name}{p.id === me.id ? ' (tú)' : ''}</span>
+                <span className="p-name">{p.name}{p.id === me.id ? ` (${lang==='es'?'tú':'you'})` : ''}</span>
                 {p.isMC && <span className="p-tag-mc">MC</span>}
                 <span className="p-tag-ct">#{CARTONES[p.cartonIdx].id}</span>
+                {me.isMC && !p.isMC && (
+                  <button className="btn btn-ghost btn-sm" style={{padding:'2px 7px',fontSize:'.65rem'}}
+                    onClick={() => setTransferTarget(p)} title={t(lang,'transferTitle')}>🎤→</button>
+                )}
               </div>
             ))}
           </div>
 
           {me.isMC && (
             <div className="panel">
-              <div className="panel-title">Pozo estimado</div>
+              <div className="panel-title">{t(lang,'estimatedPot')}</div>
               <div className="prize-pool">{fmtClp(total)}</div>
-              <p className="xs dim mt4">{fmtClp(settings.apuesta)} × {players.length} jugadores</p>
+              <p className="xs dim mt4">{fmtClp(settings.apuesta)} × {players.length} {lang==='es'?'jugadores':'players'}</p>
               <div className="pct-bar">
                 <div className="pct-t" style={{ flex: settings.ternaPct }} />
                 <div className="pct-l" style={{ flex: settings.lineaPct }} />
@@ -627,10 +775,10 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
         <div className="lb-right">
           {me.isMC && (
             <div className="panel">
-              <div className="panel-title">Configuración del juego</div>
+              <div className="panel-title">{t(lang,'gameConfig')}</div>
               <div className="settings-g">
                 <div className="fld">
-                  <label className="lbl">Apuesta (CLP)</label>
+                  <label className="lbl">{t(lang,'bet')}</label>
                   <input className="inp inp-num" type="number" value={settings.apuesta} min={0} step={100}
                     onChange={e => onSettings({ ...settings, apuesta: Math.max(0, Number(e.target.value)) })} />
                 </div>
@@ -650,12 +798,12 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
                     onChange={e => onSettings({ ...settings, lotaPct: Number(e.target.value) })} />
                 </div>
               </div>
-              {pctSum !== 100 && <p className="warn">⚠ Los porcentajes deben sumar 100% (actual: {pctSum}%)</p>}
+              {pctSum !== 100 && <p className="warn">{t(lang,'pctWarn')} {pctSum}%)</p>}
             </div>
           )}
 
           <div className="panel">
-            <div className="panel-title">Elige tu Cartón</div>
+            <div className="panel-title">{t(lang,'chooseCarton')}</div>
             <div className="cs-wrap">
               {CARTONES.map((c, i) => (
                 <button key={c.id} className={`cs-btn${me.cartonIdx === i ? ' active' : ''}`}
@@ -668,28 +816,97 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
           </div>
 
           <div className="panel">
-            <div className="panel-title">Marcador (Skin)</div>
+            <div className="panel-title">{t(lang,'markerSkin')}</div>
             <div className="sk-row">
               {SKINS.map(s => (
-                <button key={s.id} className={`sk-btn${me.skin === s.id ? ' active' : ''}`} onClick={() => onSkin(s.id)}>
-                  {s.id === 'dot'
-                    ? <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(39,174,96,.8)', border: '2px solid #27AE60' }} />
-                    : s.label}
+                <button key={s.id} className={`sk-btn${me.skin === s.id ? ' active' : ''}`} onClick={() => onSkin(s.id)}
+                  title={s.label} style={{overflow:'hidden',padding:s.img?0:undefined}}>
+                  {s.img
+                    ? <img src={s.img} alt={s.label} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:7}} />
+                    : s.id === 'dot'
+                      ? <div style={{ width:20,height:20,borderRadius:'50%',background:'rgba(39,174,96,.8)',border:'2px solid #27AE60' }} />
+                      : s.label}
                 </button>
               ))}
             </div>
           </div>
 
+          <div className="panel">
+            <div className="panel-title">{t(lang,'soundSettings')}</div>
+            <div className="cs-wrap">
+              <button className={`cs-btn${settings.soundMode==='default'?' active':''}`}
+                onClick={() => onSettings({...settings, soundMode:'default'})}>
+                🎵 {t(lang,'classicTones')}
+              </button>
+              <button className={`cs-btn${settings.soundMode==='chilean'?' active':''}`}
+                onClick={() => onSettings({...settings, soundMode:'chilean'})}>
+                🇨🇱 {t(lang,'chileanSounds')}
+              </button>
+            </div>
+            <p className="xs dim mt8" style={{lineHeight:1.4}}>{t(lang,'soundsHint')}</p>
+          </div>
+
+          {/* El Pique */}
+          <div className="panel">
+            <div className="flex jb ac mb8">
+              <div className="panel-title" style={{margin:0}}>⚡ {t(lang,'pique')}</div>
+              {me.isMC && (
+                <button className={`btn btn-sm ${pique.enabled?'btn-danger':'btn-ghost'}`}
+                  onClick={() => onPique({...INIT_PIQUE, enabled:!pique.enabled, stake:pique.stake})}>
+                  {pique.enabled ? t(lang,'piqueDisable') : t(lang,'piqueEnable')}
+                </button>
+              )}
+            </div>
+            {pique.enabled ? (
+              <>
+                <p className="xs dim mb8">{t(lang,'piqueDesc')}</p>
+                {me.isMC && (
+                  <div className="fld mb8">
+                    <label className="lbl">{t(lang,'piqueStake')}</label>
+                    <input className="inp inp-num" type="number" value={pique.stake} min={0} step={100}
+                      onChange={e => onPique({...pique, stake:Math.max(0,Number(e.target.value))})} />
+                  </div>
+                )}
+                <div className="flex jb ac mb8">
+                  <span className="xs dim">{t(lang,'piquePartic')}: {pique.participants.length}</span>
+                  <button className={`btn btn-sm ${inPique?'btn-danger':'btn-green'}`}
+                    onClick={togglePiqueParticipation}>
+                    {inPique ? t(lang,'piqueOptOut') : t(lang,'piqueOptIn')} ({fmtClp(pique.stake)})
+                  </button>
+                </div>
+                {pique.participants.length > 0 && (
+                  <div className="flex g6" style={{flexWrap:'wrap'}}>
+                    {pique.participants.map(pid => {
+                      const p = players.find(x => x.id === pid);
+                      return p ? <span key={pid} className="chip chip-ok">{p.name}</span> : null;
+                    })}
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="xs dim">{me.isMC ? t(lang,'piqueDesc') : (lang==='es'?'El Animador no ha activado El Pique.':'The MC has not enabled El Pique.')}</p>
+            )}
+          </div>
+
           {me.isMC
             ? <button className="btn btn-gold btn-xl btn-block" disabled={pctSum !== 100} onClick={onStart}>
-                🎉 ¡COMENZAR PARTIDA!
+                🎉 {t(lang,'startGame')}
               </button>
             : <div className="wait-banner">
-                <p className="dim sm pulse">Esperando que el Animador inicie la partida…</p>
+                <p className="dim sm pulse">{t(lang,'waitingMC')}</p>
               </div>
           }
         </div>
       </div>
+
+      {transferTarget && (
+        <TransferModal
+          targetName={transferTarget.name}
+          lang={lang}
+          onConfirm={() => { onTransferMC(transferTarget.id); setTransferTarget(null); }}
+          onCancel={() => setTransferTarget(null)}
+        />
+      )}
     </div>
   );
 }
@@ -697,7 +914,7 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
 // ────────────────────────────────────────────────────────────
 // SNOOP MODAL
 // ────────────────────────────────────────────────────────────
-function SnoopModal({ players, game, onClose, onValidate, onReject }) {
+function SnoopModal({ players, game, onClose, onValidate, onReject, lang }) {
   const reqsByPlayer = {};
   game.requests.forEach(r => {
     if (!reqsByPlayer[r.playerId]) reqsByPlayer[r.playerId] = [];
@@ -708,15 +925,15 @@ function SnoopModal({ players, game, onClose, onValidate, onReject }) {
     <div className="modal-bg" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box">
         <div className="modal-hdr">
-          <h2>👁 Vista General — {players.length} Jugadores</h2>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕ Cerrar</button>
+          <h2>👁 {t(lang,'overviewTitle')} — {players.length} {lang==='es'?'Jugadores':'Players'}</h2>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>{t(lang,'closeBnt')}</button>
         </div>
         <div className="modal-body">
           {/* Pending requests at the top */}
           {game.requests.length > 0 && (
             <div className="reqs-section">
               <div className="panel-title" style={{ color: '#E8B84B' }}>
-                ⚡ Solicitudes pendientes ({game.requests.length})
+                ⚡ {t(lang,'pendingReqs')} ({game.requests.length})
               </div>
               {game.requests.map(req => {
                 const pl = players.find(p => p.id === req.playerId);
@@ -775,7 +992,7 @@ function SnoopModal({ players, game, onClose, onValidate, onReject }) {
             })}
           </div>
           <p className="xs dim tc" style={{borderTop:'1px solid rgba(212,82,42,.12)',paddingTop:12}}>
-            💡 <strong style={{color:'#B08868'}}>Modo demo:</strong> Los otros jugadores marcan automáticamente sus números al cantarse. En la versión real con Supabase, cada jugador marca en su propio dispositivo en tiempo real.
+            💡 <strong style={{color:'#B08868'}}>{lang==='es'?'Modo demo':'Demo mode'}:</strong> {t(lang,'demoNote')}
           </p>
         </div>
       </div>
@@ -803,7 +1020,38 @@ function AnnView({ ann, onClose }) {
 // ────────────────────────────────────────────────────────────
 // GAME VIEW
 // ────────────────────────────────────────────────────────────
-function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, onValidate, onReject, showSnoop, setShowSnoop, ballKey, onLeave, onSettle, onShowBalances }) {
+// ────────────────────────────────────────────────────────────
+// TIE BREAK MODAL
+// ────────────────────────────────────────────────────────────
+function TieBreakModal({ tiedPlayers, piqueAmount, onSplit, onKeepDrawing, lang }) {
+  const perPlayer = Math.floor(piqueAmount / tiedPlayers.length);
+  return (
+    <div className="modal-bg">
+      <div className="modal-box" style={{maxWidth:460}} onClick={e=>e.stopPropagation()}>
+        <div className="modal-hdr">
+          <h2 style={{color:'#E8B84B'}}>⚡ {t(lang,'piqueTie')}</h2>
+        </div>
+        <div className="modal-body tc">
+          <p style={{fontSize:'1.05rem',fontWeight:800,marginBottom:6,lineHeight:1.4}}>
+            {tiedPlayers.map(p=>p.name).join(' & ')}
+          </p>
+          <p className="dim xs mb8">{lang==='es'?'tienen el número':'have the number'} · {t(lang,'piqueTieSub')}</p>
+          <div className="flex g10 mt12 jc" style={{flexWrap:'wrap'}}>
+            <button className="btn btn-gold btn-xl" onClick={onSplit}>
+              {t(lang,'piqueSplit')}
+              <span className="pz-sub">{fmtClp(perPlayer)} {lang==='es'?'c/u':'each'}</span>
+            </button>
+            <button className="btn btn-red" onClick={onKeepDrawing}>
+              {t(lang,'piqueKeepDraw')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, onValidate, onReject, showSnoop, setShowSnoop, ballKey, onLeave, onSettle, onShowBalances, pique, piqueAction, lang, onToggleLang }) {
   const carton = CARTONES[me.cartonIdx];
   const total = calcPot(players.length, settings.apuesta);
   const { terna, linea, lota } = game.prizes;
@@ -814,8 +1062,7 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
   const canLinea = !!terna && !linea && canReq('linea', carton, me.marked);
   const canLota  = !!linea && !lota  && canReq('lota',  carton, me.marked);
 
-  // Player sees only last 5 drawn numbers (not a full log — that would be cheating)
-  const recent = [...game.calledNumbers].reverse().slice(0, 6);
+  const recent = [...game.calledNumbers].reverse().slice(0, VISIBLE_LAST_CALLS);
 
   return (
     <div className="game">
@@ -836,14 +1083,20 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
           <div className={`pb-item ${lota ? 'pb-won' : linea ? 'pb-open' : 'pb-pend'}`}>
             Lota{lota ? ` — ${lota.playerName}` : ` ${fmtClp(calcPrize(total, settings.lotaPct))}`}
           </div>
+          {pique.active && (
+            <div className={`pb-item ${pique.settled ? 'pb-won' : 'pb-open'}`} style={{borderColor:'#9B59B6',color:pique.settled?'#9B59B6':'#BE8EE8'}}>
+              ⚡ Pique{pique.settled && pique.winner ? ` — ${pique.winner.playerName}` : ` ${fmtClp(pique.participants.length * pique.stake)}`}
+            </div>
+          )}
         </div>
 
-        <div className="flex g8">
-          <button className="btn btn-ghost btn-sm" onClick={onLeave}>Lobby</button>
-          <button className="btn btn-ghost btn-sm" onClick={onShowBalances}>💰 Balances</button>
+        <div className="flex g8 ac">
+          <button className="btn btn-ghost btn-sm" onClick={onLeave}>{t(lang,'lobby')}</button>
+          <button className="btn btn-ghost btn-sm" onClick={onShowBalances}>{t(lang,'balances')}</button>
           {me.isMC && allDone && (
-            <button className="btn btn-gold btn-sm" onClick={onSettle}>🏆 Cierre Final</button>
+            <button className="btn btn-gold btn-sm" onClick={onSettle}>{t(lang,'finalSettle')}</button>
           )}
+          <LangToggle lang={lang} onToggle={onToggleLang} />
         </div>
       </div>
 
@@ -854,7 +1107,7 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
           {/* Players see only last-drawn numbers, not a full list */}
           {!me.isMC && recent.length > 0 && (
             <div className="last-wrap">
-              <span className="last-lbl">Últimos cantados</span>
+              <span className="last-lbl">{t(lang,'lastCalled')}</span>
               <div className="last-balls">
                 {recent.map((n, i) => (
                   <div key={n} className={`mini-ball${i === 0 ? ' newest' : ''}`}>{n}</div>
@@ -894,21 +1147,21 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
           <div className="game-tower">
             {/* Draw section */}
             <div className="tw-panel">
-              <div className="tw-title">Control del Animador</div>
+              <div className="tw-title">{t(lang,'mcControl')}</div>
               <div className="draw-row">
                 <div className={`big-ball${game.lastDrawn ? ' fresh' : ' empty'}`} key={ballKey}>
                   {game.lastDrawn || '—'}
                 </div>
                 <button className="btn-draw" onClick={onDraw}
                   disabled={game.calledNumbers.length >= 90 || allDone}>
-                  🎱 CANTAR NÚMERO
+                  {t(lang,'callNumber')}
                 </button>
               </div>
               <div className="divline" />
               <div className="stat-row">
-                <span style={{fontSize:'.72rem',color:'#C8A878',fontWeight:700}}>{90 - game.calledNumbers.length} números restantes</span>
+                <span style={{fontSize:'.72rem',color:'#C8A878',fontWeight:700}}>{90 - game.calledNumbers.length} {t(lang,'remaining')}</span>
                 <button className="btn btn-ghost btn-sm" onClick={() => setShowSnoop(true)}>
-                  👁 Jugadores {game.requests.length > 0 && `(${game.requests.length} ⚡)`}
+                  👁 {t(lang,'gamePlayers')} {game.requests.length > 0 && `(${game.requests.length} ⚡)`}
                 </button>
               </div>
             </div>
@@ -916,7 +1169,7 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
             {/* Log */}
             {game.log.length > 0 && (
               <div className="tw-panel">
-                <div className="tw-title">Registro de partida</div>
+                <div className="tw-title">{t(lang,'gameLog')}</div>
                 <div className="game-log">
                   {game.log.map(e => (
                     <div key={e.id} className={`le le-${e.type}`}>
@@ -935,7 +1188,7 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
 
             {/* Number matrix */}
             <div className="tw-panel">
-              <div className="tw-title">Tabla 1–90</div>
+              <div className="tw-title">{t(lang,'table')}</div>
               <div className="matrix">
                 {[0, 10, 20, 30, 40, 50, 60, 70, 80].map(start => (
                   <div key={start} className="mx-row">
@@ -951,7 +1204,7 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
 
             {allDone && (
               <button className="btn btn-gold btn-xl btn-block" onClick={onSettle}>
-                🏆 Ver Balances Finales
+                {t(lang,'finalSettle')}
               </button>
             )}
           </div>
@@ -961,10 +1214,21 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
       {/* Snoop Modal */}
       {showSnoop && (
         <SnoopModal
-          players={players} game={game}
+          players={players} game={game} lang={lang}
           onClose={() => setShowSnoop(false)}
           onValidate={reqId => { onValidate(reqId); setShowSnoop(false); }}
           onReject={reqId => { onReject(reqId); setShowSnoop(false); }}
+        />
+      )}
+
+      {/* Tie Break Modal */}
+      {pique.tied.length > 0 && !pique.settled && (
+        <TieBreakModal
+          lang={lang}
+          tiedPlayers={pique.tied.map(id => players.find(p => p.id === id)).filter(Boolean)}
+          piqueAmount={pique.participants.length * pique.stake}
+          onSplit={() => piqueAction('split')}
+          onKeepDrawing={() => piqueAction('keep')}
         />
       )}
     </div>
@@ -976,20 +1240,20 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
 // ────────────────────────────────────────────────────────────
 const EMPTY_STAT = { gamesPlayed: 0, wins: { terna: 0, linea: 0, lota: 0 }, totalWagered: 0 };
 
-function StatsTable({ players, stats }) {
+function StatsTable({ players, stats, lang = 'es' }) {
   const sorted = [...players].sort((a, b) => b.balance - a.balance);
   return (
     <div className="stats-wrap">
       <table className="stats-tbl">
         <thead>
           <tr>
-            <th>Jugador</th>
-            <th>Partidas</th>
+            <th>{t(lang,'stPlayer')}</th>
+            <th>{t(lang,'stGames')}</th>
             <th style={{color:'#E8B84B'}}>Ternas</th>
             <th style={{color:'#C94B28'}}>Líneas</th>
             <th style={{color:'#27AE60'}}>Lotas</th>
-            <th>Apostado</th>
-            <th>Saldo</th>
+            <th>{t(lang,'stBet')}</th>
+            <th>{t(lang,'stBalance')}</th>
           </tr>
         </thead>
         <tbody>
@@ -1021,20 +1285,20 @@ function StatsTable({ players, stats }) {
   );
 }
 
-function BalancesModal({ players, stats, currentGame, onClose }) {
+function BalancesModal({ players, stats, currentGame, onClose, lang = 'es' }) {
   const prizes = currentGame?.prizes || {};
   const anyPrize = prizes.terna || prizes.linea || prizes.lota;
   return (
     <div className="modal-bg" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box" style={{maxWidth:760}}>
         <div className="modal-hdr">
-          <h2>💰 Balances de Sesión</h2>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕ Cerrar</button>
+          <h2>💰 {t(lang,'sessionBal')}</h2>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>{t(lang,'closeBnt')}</button>
         </div>
         <div className="modal-body">
           {anyPrize && (
             <div>
-              <div className="panel-title" style={{color:'#C8A878',marginBottom:8}}>Premios de la partida actual</div>
+              <div className="panel-title" style={{color:'#C8A878',marginBottom:8}}>{t(lang,'curPrizes')}</div>
               <div className="cur-prizes">
                 {['terna','linea','lota'].map(type => {
                   const p = prizes[type];
@@ -1051,9 +1315,9 @@ function BalancesModal({ players, stats, currentGame, onClose }) {
               <div className="divline" />
             </div>
           )}
-          <div className="panel-title" style={{color:'#C8A878',marginBottom:10}}>Historial de sesión — todas las partidas</div>
-          <StatsTable players={players} stats={stats} />
-          <p className="xs dim tc mt12">Balances acumulados. Saldo = premios ganados − apuestas totales.</p>
+          <div className="panel-title" style={{color:'#C8A878',marginBottom:10}}>{t(lang,'sessionAll')}</div>
+          <StatsTable players={players} stats={stats} lang={lang} />
+          <p className="xs dim tc mt12">{t(lang,'balNote')}</p>
         </div>
       </div>
     </div>
@@ -1063,20 +1327,23 @@ function BalancesModal({ players, stats, currentGame, onClose }) {
 // ────────────────────────────────────────────────────────────
 // SETTLEMENT VIEW
 // ────────────────────────────────────────────────────────────
-function SettleView({ players, settings, game, stats, onNewRound, onBack }) {
+function SettleView({ players, settings, game, stats, onNewRound, onBack, lang = 'es', onToggleLang }) {
   const total = calcPot(players.length, settings.apuesta);
   const pctMap = { terna: settings.ternaPct, linea: settings.lineaPct, lota: settings.lotaPct };
 
   return (
     <div className="settle">
       <div className="settle-hdr">
-        <div className="logo-txt" style={{ fontSize: '2.2rem' }}>Cierre</div>
-        <button className="btn btn-ghost btn-sm" onClick={onBack}>← Volver</button>
+        <div style={{display:'flex',alignItems:'center',gap:12}}>
+          <div className="logo-txt" style={{ fontSize: '2.2rem' }}>{t(lang,'settleTitle')}</div>
+          <LangToggle lang={lang} onToggle={onToggleLang} />
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={onBack}>{t(lang,'backBtn')}</button>
       </div>
 
       {/* Prizes this round */}
       <div className="panel" style={{ width: '100%', maxWidth: 680 }}>
-        <div className="panel-title">Premios de esta partida — Pozo: {fmtClp(total)}</div>
+        <div className="panel-title">{t(lang,'prizeThisRound')} {fmtClp(total)}</div>
         {['terna', 'linea', 'lota'].map(type => {
           const p = game.prizes[type];
           return (
@@ -1095,12 +1362,12 @@ function SettleView({ players, settings, game, stats, onNewRound, onBack }) {
 
       {/* Full session stats */}
       <div className="panel" style={{ width: '100%', maxWidth: 680 }}>
-        <div className="panel-title">Historial de sesión completo</div>
-        <StatsTable players={players} stats={stats} />
+        <div className="panel-title">{t(lang,'sessionHistory')}</div>
+        <StatsTable players={players} stats={stats} lang={lang} />
       </div>
 
       <button className="btn btn-gold btn-xl" onClick={onNewRound}>
-        🎉 Nueva Ronda
+        {t(lang,'newRound')}
       </button>
       <p className="xs dim tc">
         Próximamente: transferencias directas y alertas de pago automáticas
@@ -1119,18 +1386,26 @@ export default function App() {
   const [players,      setPlayers]      = useState([]);
   const [settings,     setSettings]     = useState(INIT_SETTINGS);
   const [game,         setGame]         = useState(INIT_GAME);
+  const [pique,        setPique]        = useState(INIT_PIQUE);
   const [ann,          setAnn]          = useState(null);
   const [snoop,        setSnoop]        = useState(false);
   const [ballKey,      setBallKey]      = useState(0);
   const [stats,        setStats]        = useState({});
   const [showBalances, setShowBalances] = useState(false);
+  const [lang,         setLang]         = useState('es');
   const annTimer = useRef(null);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const langRef = useRef(lang);
+  langRef.current = lang;
+
+  const toggleLang = useCallback(() => setLang(l => l === 'es' ? 'en' : 'es'), []);
 
   // ── Announcement system ──
   const announce = useCallback((type, msg, val = '', sub = '', dur = 3500) => {
     if (annTimer.current) clearTimeout(annTimer.current);
     setAnn({ type, msg, val, sub });
-    playTone(type);
+    playTone(type, settingsRef.current.soundMode);
     annTimer.current = setTimeout(() => setAnn(null), dur);
   }, []);
 
@@ -1173,9 +1448,17 @@ export default function App() {
     setPlayers(prev => prev.map(p => p.id === me.id ? { ...p, skin } : p));
   }, [me]);
 
+  // ── TRANSFER MC ──
+  const transferMC = useCallback(targetId => {
+    setPlayers(prev => prev.map(p =>
+      p.id === targetId ? { ...p, isMC: true } : p.isMC ? { ...p, isMC: false } : p
+    ));
+    setMe(prev => ({ ...prev, isMC: false }));
+  }, []);
+
   // ── START GAME ──
   const startGame = useCallback(() => {
-    // Track stats: gamesPlayed + totalWagered for everyone in the room
+    // Track stats
     setStats(prev => {
       const next = { ...prev };
       players.forEach(p => {
@@ -1184,11 +1467,22 @@ export default function App() {
       });
       return next;
     });
-    setPlayers(prev => prev.map(p => ({ ...p, balance: p.balance - settings.apuesta, marked: [] })));
-    setMe(prev => ({ ...prev, marked: [], balance: prev.balance - settings.apuesta }));
+    setPlayers(prev => prev.map(p => {
+      let bal = p.balance - settings.apuesta;
+      if (pique.enabled && pique.participants.includes(p.id)) bal -= pique.stake;
+      return { ...p, balance: bal, marked: [] };
+    }));
+    setMe(prev => {
+      let bal = prev.balance - settings.apuesta;
+      if (pique.enabled && pique.participants.includes(prev.id)) bal -= pique.stake;
+      return { ...prev, marked: [], balance: bal };
+    });
+    if (pique.enabled && pique.participants.length > 0) {
+      setPique(prev => ({ ...prev, active: true }));
+    }
     setGame({ ...INIT_GAME, status: 'active' });
     setScreen('game');
-  }, [settings, players]);
+  }, [settings, players, pique]);
 
   // ── DRAW NUMBER ──
   const drawNumber = useCallback(() => {
@@ -1199,15 +1493,42 @@ export default function App() {
       const num = avail[Math.floor(Math.random() * avail.length)];
       const newCalled = [...prev.calledNumbers, num];
 
-      // Auto-mark demo players (they mark their own numbers automatically)
-      setPlayers(pp => pp.map(p => {
-        if (p.id === me.id) return p;
-        const carton = CARTONES[p.cartonIdx];
-        if (carton.rows.some(row => row.includes(num))) {
-          return { ...p, marked: [...p.marked, num] };
-        }
-        return p;
-      }));
+      // Auto-mark demo players
+      setPlayers(pp => {
+        const updated = pp.map(p => {
+          if (p.id === me.id) return p;
+          const carton = CARTONES[p.cartonIdx];
+          if (carton.rows.some(row => row.includes(num))) {
+            return { ...p, marked: [...p.marked, num] };
+          }
+          return p;
+        });
+
+        // Pique check — runs against the freshly-updated players list
+        setPique(pq => {
+          if (!pq.active || pq.settled) return pq;
+          const checkList = pq.tied.length > 0 ? pq.tied : pq.participants;
+          const hitIds = checkList.filter(pid => {
+            const p = updated.find(x => x.id === pid);
+            if (!p) return false;
+            return CARTONES[p.cartonIdx].rows.some(row => row.includes(num));
+          });
+          if (hitIds.length === 0) return pq;
+          if (hitIds.length === 1) {
+            const winner = updated.find(x => x.id === hitIds[0]);
+            const amount = pq.participants.length * pq.stake;
+            // Credit winner balance
+            setPlayers(pp2 => pp2.map(p => p.id === hitIds[0] ? { ...p, balance: p.balance + amount } : p));
+            if (hitIds[0] === me.id) setMe(m => ({ ...m, balance: m.balance + amount }));
+            announce('win', `¡${winner?.name} ${langRef.current==='es'?'ganó El Pique':'won El Pique'}!`, '', fmtClp(amount), 5000);
+            return { ...pq, settled: true, active: false, tied: [], winner: { playerId: hitIds[0], playerName: winner?.name, amount } };
+          }
+          // Tie — show modal (pq.tied populated triggers TieBreakModal)
+          return { ...pq, tied: hitIds };
+        });
+
+        return updated;
+      });
 
       const entry = { id: Date.now() + '', ts: tstamp(), msg: `Salió el ${num}`, type: 'draw' };
       announce('draw', `¡${num}!`, num, '', 1600);
@@ -1289,8 +1610,26 @@ export default function App() {
     announce('invalid', `¡Rechazado!`, '', `${req.playerName} — ${req.type.toUpperCase()}`, 2500);
   }, [game, announce]);
 
+  // ── PIQUE TIE ACTION ──
+  const piqueAction = useCallback(action => {
+    setPique(prev => {
+      if (action === 'split') {
+        const amount = prev.participants.length * prev.stake;
+        const perPlayer = Math.floor(amount / prev.tied.length);
+        prev.tied.forEach(pid => {
+          setPlayers(pp => pp.map(p => p.id === pid ? { ...p, balance: p.balance + perPlayer } : p));
+          if (pid === me.id) setMe(m => ({ ...m, balance: m.balance + perPlayer }));
+        });
+        return { ...prev, settled: true, active: false, tied: [], winner: { playerName: `${prev.tied.length} ${langRef.current==='es'?'jugadores':'players'}`, amount } };
+      }
+      // keep — narrow participants to only the tied players
+      return { ...prev, participants: prev.tied, tied: [] };
+    });
+  }, [me]);
+
   // ── NEW ROUND ──
   const newRound = useCallback(() => {
+    setPique(prev => ({ ...INIT_PIQUE, enabled: prev.enabled, stake: prev.stake }));
     setGame(INIT_GAME);
     setScreen('lobby');
   }, []);
@@ -1301,7 +1640,7 @@ export default function App() {
       <style>{CSS}</style>
 
       {screen === 'landing' && (
-        <LandingView onCreate={createRoom} onJoin={joinRoom} />
+        <LandingView onCreate={createRoom} onJoin={joinRoom} lang={lang} onToggleLang={toggleLang} />
       )}
 
       {screen === 'lobby' && (
@@ -1313,6 +1652,9 @@ export default function App() {
           onStart={startGame}
           onBack={() => setScreen('landing')}
           onShowBalances={() => setShowBalances(true)}
+          onTransferMC={transferMC}
+          pique={pique} onPique={setPique}
+          lang={lang} onToggleLang={toggleLang}
         />
       )}
 
@@ -1329,6 +1671,8 @@ export default function App() {
           onLeave={() => { setGame(INIT_GAME); setScreen('lobby'); }}
           onSettle={() => setScreen('settle')}
           onShowBalances={() => setShowBalances(true)}
+          pique={pique} piqueAction={piqueAction}
+          lang={lang} onToggleLang={toggleLang}
         />
       )}
 
@@ -1337,6 +1681,7 @@ export default function App() {
           players={players} settings={settings} game={game} stats={stats}
           onNewRound={newRound}
           onBack={() => setScreen('game')}
+          lang={lang} onToggleLang={toggleLang}
         />
       )}
 
@@ -1345,6 +1690,7 @@ export default function App() {
           players={players} stats={stats}
           currentGame={screen === 'game' ? game : null}
           onClose={() => setShowBalances(false)}
+          lang={lang}
         />
       )}
 
