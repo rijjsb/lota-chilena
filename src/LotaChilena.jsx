@@ -264,20 +264,20 @@ html,body{height:100%}
 .hero .logo-txt{font-size:clamp(4.5rem,11vw,8rem)}
 .tagline{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.25em;color:#C8A070;margin-top:.6rem;text-shadow:0 1px 8px rgba(0,0,0,.8)}
 .cards-wrap{display:flex;gap:18px;width:100%;max-width:580px;flex-wrap:wrap;justify-content:center}
-.lc{background:rgba(36,16,6,0.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(212,82,42,.38);border-radius:22px;padding:28px;flex:1;min-width:240px;display:flex;flex-direction:column;gap:14px;transition:border-color .25s,transform .2s}
-.lc:hover{border-color:rgba(212,82,42,.5);transform:translateY(-3px)}
+.lc{background:rgba(52,22,8,0.80);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(212,82,42,.42);border-radius:22px;padding:28px;flex:1;min-width:240px;display:flex;flex-direction:column;gap:14px;transition:border-color .25s,transform .2s}
+.lc:hover{border-color:rgba(212,82,42,.65);transform:translateY(-3px)}
 .lc-icon{font-size:2.2rem;text-align:center}
-.lc h2{font-size:1.2rem;font-weight:900;text-align:center}
-.lc p{font-size:.8rem;color:#C8A070;text-align:center;line-height:1.5}
+.lc h2{font-size:1.2rem;font-weight:900;text-align:center;color:#FAEBD7}
+.lc p{font-size:.8rem;color:#D4AA7A;text-align:center;line-height:1.5}
 .or-div{display:flex;align-items:center;gap:12px;color:#BF8A60;font-weight:900;font-size:.7rem;letter-spacing:.12em;width:100%;max-width:580px}
 .or-div::before,.or-div::after{content:'';flex:1;height:1px;background:rgba(212,82,42,.2)}
 
 /* ── INPUTS ── */
 .fld{display:flex;flex-direction:column;gap:5px}
-.lbl{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#B08868}
+.lbl{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#CCA882}
 .inp{background:rgba(255,255,255,.09);border:1px solid rgba(212,82,42,.32);border-radius:10px;padding:11px 14px;color:#FFF3E0;font-size:1rem;font-family:'Nunito',sans-serif;width:100%;outline:none;transition:border-color .2s}
 .inp:focus{border-color:#C94B28}
-.inp::placeholder{color:#7A5040}
+.inp::placeholder{color:#A07858}
 .inp-code{letter-spacing:.35em;text-transform:uppercase;font-weight:800;font-size:1.15rem;text-align:center}
 .inp-num{-moz-appearance:textfield}
 .inp-num::-webkit-outer-spin-button,.inp-num::-webkit-inner-spin-button{-webkit-appearance:none}
