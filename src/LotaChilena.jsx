@@ -131,7 +131,7 @@ const TR = {
   lobby:          {es:'Lobby',                                  en:'Lobby'},
   // Pique
   pique:          {es:'El Pique',                               en:'El Pique'},
-  piqueDesc:      {es:'Una pequeña apuesta - El primer jugador al que le caiga un número en su cartón gana (se puede repartir con otros ganadores).', en:'A little wager - First player to have a called number land on their card wins (you can divide it with other winners).'},
+  piqueDesc:      {es:'Una pequeña apuesta - El primer jugador al que le caiga un número en su cartón gana', en:'A little wager - First player to have a called number land on their card wins'},
   piqueEnable:    {es:'Activar El Pique',                       en:'Enable El Pique'},
   piqueDisable:   {es:'Desactivar El Pique',                    en:'Disable El Pique'},
   piqueStake:     {es:'Apuesta del Pique (CLP)',                en:'Pique stake (CLP)'},
