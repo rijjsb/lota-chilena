@@ -1379,17 +1379,19 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
                       <div className="flex ac g6">
                         {e.type === 'req' && e.reqId && (() => {
                           const thisReq = game.requests.find(r => r.id === e.reqId);
-                          const isPique = thisReq?.type === 'pique';
+                          if (!thisReq) return null; // already handled — no buttons
+                          const isPique = thisReq.type === 'pique';
                           const otherPiqueReqs = isPique ? game.requests.filter(r => r.type === 'pique' && r.id !== e.reqId) : [];
                           return (
                             <>
-                              <button className="btn btn-green btn-sm" onClick={() => onValidate(e.reqId)}>✓</button>
+                              <button className="btn btn-green btn-sm" onClick={() => onValidate(e.reqId)} title={lang==='es'?'Validar':'Validate'}>✓</button>
                               {isPique && otherPiqueReqs.length > 0 && !pique.settled && (
                                 <button className="btn btn-sm" style={{fontSize:'.62rem',padding:'3px 7px',background:'#9B59B6',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontWeight:800}}
                                   onClick={() => piqueAction('split', [...otherPiqueReqs.map(r=>r.playerId), thisReq.playerId])}>
                                   {lang==='es'?'Dividir':'Split'}
                                 </button>
                               )}
+                              <button className="btn btn-danger btn-sm" onClick={() => onReject(e.reqId)} title={lang==='es'?'Rechazar':'Reject'}>✗</button>
                             </>
                           );
                         })()}
