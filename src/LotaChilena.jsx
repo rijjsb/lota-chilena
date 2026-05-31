@@ -1132,7 +1132,7 @@ function PlayersStrip({ players, pique, me, lang }) {
     return () => clearInterval(t);
   }, []);
   return (
-    <div className="panel" style={{width:210,flexShrink:0,alignSelf:'flex-start'}}>
+    <div className="panel" style={{width:230,flexShrink:0,alignSelf:'flex-start'}}>
       <div className="panel-title">{lang==='es'?'Jugadores en sala':'Players'}</div>
       {players.map(p => (
         <div key={p.id} className="p-row">
@@ -1142,7 +1142,7 @@ function PlayersStrip({ players, pique, me, lang }) {
               style={{position:'absolute',bottom:-1,right:-1}}
               title={isOnline(p)?(lang==='es'?'Conectado':'Connected'):(lang==='es'?'Desconectado':'Disconnected')} />
           </div>
-          <span className="p-name" style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          <span className="p-name">
             {p.name}{p.id === me?.id ? ` (${lang==='es'?'tú':'you'})` : ''}
           </span>
           {p.isMC && <span className="p-tag-mc">MC</span>}
