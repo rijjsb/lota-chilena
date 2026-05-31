@@ -64,15 +64,16 @@ const CARTONES = [
   {id:50,rows:[[5,17,28,30,46,0,0,0,0],[0,13,23,39,0,58,67,0,0],[7,0,0,0,41,54,60,79,84]]},
 ];
 
+// fit:'contain' = show full image (no crop); default = 'cover' (circle crop)
 const SKINS = [
   {id:'dot',    label:'Clásico',  img:null},
-  {id:'x',      label:'✕',        img:null},
-  {id:'poroto', label:'Poroto',   img:'/skins/Poroto1.jpg'},
+  //{id:'x',      label:'✕',        img:null},
+  {id:'poroto', label:'Poroto',   img:'/skins/Poroto1.jpg', fit:'contain'},
   {id:'peso',   label:'$1',       img:'/skins/peso1a.jpg'},
+  {id:'pesob',   label:'$1 Bernado',       img:'/skins/Peso1b.jpg'},
   {id:'peso5',  label:'$5',       img:'/skins/peso5a.jpg'},
-  {id:'escudo', label:'Escudo',   img:'/skins/Escudo.jpg'},
-  {id:'lucas',  label:'20 Lucas', img:'/skins/20lucas.jpg'},
-  {id:'cheque', label:'Cheque',   img:'/skins/cheque.jpg'},
+  {id:'peso5b',  label:'$5 Berardo',       img:'/skins/peso5b.jpg'},
+  {id:'lucas',  label:'20 Lucas', img:'/skins/20lucas.jpg', fit:'contain'},
 ];
 
 const DEMO_PLAYERS = [
@@ -85,8 +86,8 @@ const DEMO_PLAYERS = [
 
 const COL_RANGES = ['1-9','10-19','20-29','30-39','40-49','50-59','60-69','70-79','80-90'];
 
-const INIT_SETTINGS = {apuesta:1000,ternaPct:10,lineaPct:25,lotaPct:65,currency:'CLP',soundMode:'default'};
-const INIT_PIQUE    = {enabled:false,stake:500,participants:[],active:false,settled:false,winner:null,tied:[]};
+const INIT_SETTINGS = {apuesta:100,ternaPct:10,lineaPct:25,lotaPct:65,currency:'CLP',soundMode:'default'};
+const INIT_PIQUE    = {enabled:false,stake:100,participants:[],active:false,settled:false,winner:null,tied:[]};
 const INIT_GAME = {
   status:'idle',
   calledNumbers:[],
@@ -127,7 +128,7 @@ const TR = {
   lobby:          {es:'Lobby',                                  en:'Lobby'},
   // Pique
   pique:          {es:'El Pique',                               en:'El Pique'},
-  piqueDesc:      {es:'El primer jugador al que le caiga un número en su cartón gana.', en:'First player to have a called number land on their card wins.'},
+  piqueDesc:      {es:'Una pequeña apuesta - El primer jugador al que le caiga un número en su cartón gana (se puede repartir con otros ganadores).', en:'A little wager - First player to have a called number land on their card wins (you can divide it with other winners).'},
   piqueEnable:    {es:'Activar El Pique',                       en:'Enable El Pique'},
   piqueDisable:   {es:'Desactivar El Pique',                    en:'Disable El Pique'},
   piqueStake:     {es:'Apuesta del Pique (CLP)',                en:'Pique stake (CLP)'},
@@ -533,8 +534,10 @@ function LangToggle({ lang, onToggle }) {
   return (
     <button onClick={onToggle}
       title={lang === 'es' ? 'Switch to English' : 'Cambiar a Español'}
-      style={{background:'transparent',border:'1px solid rgba(212,82,42,.28)',borderRadius:8,padding:'5px 9px',cursor:'pointer',fontSize:'1.15rem',lineHeight:1,flexShrink:0}}>
-      {lang === 'es' ? '🇨🇱' : '🇳🇿'}
+      style={{background:'transparent',border:'1px solid rgba(212,82,42,.28)',borderRadius:8,padding:'5px 11px',cursor:'pointer',fontSize:'.82rem',lineHeight:1,flexShrink:0,display:'flex',alignItems:'center',gap:5,color:'#FFF3E0',fontFamily:"'Nunito',sans-serif",fontWeight:800}}>
+      {lang === 'es'
+        ? <><span style={{fontSize:'1.2rem'}}>🇨🇱</span> ES</>
+        : <><span style={{fontSize:'1.2rem'}}>🇳🇿</span> EN</>}
     </button>
   );
 }
@@ -542,7 +545,15 @@ function LangToggle({ lang, onToggle }) {
 // Skin marker rendered inside a carton cell
 function Marker({ skin }) {
   const s = SKINS.find(x => x.id === skin);
-  if (s?.img) return <img src={s.img} alt={s.label} style={{width:'80%',height:'80%',objectFit:'cover',borderRadius:'50%'}} />;
+  if (s?.img) {
+    const contain = s.fit === 'contain';
+    return <img src={s.img} alt={s.label} style={{
+      width: contain ? '92%' : '80%',
+      height: contain ? '92%' : '80%',
+      objectFit: contain ? 'contain' : 'cover',
+      borderRadius: contain ? 2 : '50%',
+    }} />;
+  }
   if (skin === 'dot') return <div className="mk-dot" />;
   if (skin === 'x')   return <span className="mk-x">✕</span>;
   return <div className="mk-dot" />;
@@ -822,7 +833,7 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
                 <button key={s.id} className={`sk-btn${me.skin === s.id ? ' active' : ''}`} onClick={() => onSkin(s.id)}
                   title={s.label} style={{overflow:'hidden',padding:s.img?0:undefined}}>
                   {s.img
-                    ? <img src={s.img} alt={s.label} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:7}} />
+                    ? <img src={s.img} alt={s.label} style={{width:'100%',height:'100%',objectFit:s.fit==='contain'?'contain':'cover',borderRadius:s.fit==='contain'?4:7}} />
                     : s.id === 'dot'
                       ? <div style={{ width:20,height:20,borderRadius:'50%',background:'rgba(39,174,96,.8)',border:'2px solid #27AE60' }} />
                       : s.label}
@@ -843,7 +854,6 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
                 🇨🇱 {t(lang,'chileanSounds')}
               </button>
             </div>
-            <p className="xs dim mt8" style={{lineHeight:1.4}}>{t(lang,'soundsHint')}</p>
           </div>
 
           {/* El Pique */}
@@ -1398,6 +1408,10 @@ export default function App() {
   settingsRef.current = settings;
   const langRef = useRef(lang);
   langRef.current = lang;
+  const piqueRef = useRef(pique);
+  piqueRef.current = pique;
+  const playersRef = useRef(players);
+  playersRef.current = players;
 
   const toggleLang = useCallback(() => setLang(l => l === 'es' ? 'en' : 'es'), []);
 
@@ -1491,49 +1505,44 @@ export default function App() {
       const avail = Array.from({ length: 90 }, (_, i) => i + 1).filter(n => !prev.calledNumbers.includes(n));
       if (!avail.length) return prev;
       const num = avail[Math.floor(Math.random() * avail.length)];
-      const newCalled = [...prev.calledNumbers, num];
 
       // Auto-mark demo players
-      setPlayers(pp => {
-        const updated = pp.map(p => {
-          if (p.id === me.id) return p;
-          const carton = CARTONES[p.cartonIdx];
-          if (carton.rows.some(row => row.includes(num))) {
-            return { ...p, marked: [...p.marked, num] };
-          }
-          return p;
-        });
+      setPlayers(pp => pp.map(p => {
+        if (p.id === me.id) return p;
+        const carton = CARTONES[p.cartonIdx];
+        return carton.rows.some(row => row.includes(num)) ? { ...p, marked: [...p.marked, num] } : p;
+      }));
 
-        // Pique check — runs against the freshly-updated players list
-        setPique(pq => {
-          if (!pq.active || pq.settled) return pq;
-          const checkList = pq.tied.length > 0 ? pq.tied : pq.participants;
-          const hitIds = checkList.filter(pid => {
-            const p = updated.find(x => x.id === pid);
-            if (!p) return false;
-            return CARTONES[p.cartonIdx].rows.some(row => row.includes(num));
-          });
-          if (hitIds.length === 0) return pq;
-          if (hitIds.length === 1) {
-            const winner = updated.find(x => x.id === hitIds[0]);
-            const amount = pq.participants.length * pq.stake;
-            // Credit winner balance
-            setPlayers(pp2 => pp2.map(p => p.id === hitIds[0] ? { ...p, balance: p.balance + amount } : p));
-            if (hitIds[0] === me.id) setMe(m => ({ ...m, balance: m.balance + amount }));
-            announce('win', `¡${winner?.name} ${langRef.current==='es'?'ganó El Pique':'won El Pique'}!`, '', fmtClp(amount), 5000);
-            return { ...pq, settled: true, active: false, tied: [], winner: { playerId: hitIds[0], playerName: winner?.name, amount } };
-          }
-          // Tie — show modal (pq.tied populated triggers TieBreakModal)
-          return { ...pq, tied: hitIds };
+      // Pique check — delayed 1700ms so it fires after the draw announcement clears
+      const pq = piqueRef.current;
+      if (pq.active && !pq.settled) {
+        const checkList = pq.tied.length > 0 ? pq.tied : pq.participants;
+        const hitIds = checkList.filter(pid => {
+          const p = playersRef.current.find(x => x.id === pid);
+          return p && CARTONES[p.cartonIdx].rows.some(row => row.includes(num));
         });
-
-        return updated;
-      });
+        if (hitIds.length > 0) {
+          setTimeout(() => {
+            const freshPique = piqueRef.current;
+            if (freshPique.settled) return; // already won by a prior number
+            if (hitIds.length === 1) {
+              const winner = playersRef.current.find(x => x.id === hitIds[0]);
+              const amount = freshPique.participants.length * freshPique.stake;
+              setPlayers(pp => pp.map(p => p.id === hitIds[0] ? { ...p, balance: p.balance + amount } : p));
+              if (hitIds[0] === me.id) setMe(m => ({ ...m, balance: m.balance + amount }));
+              announce('win', `¡${winner?.name} ${langRef.current === 'es' ? 'ganó El Pique' : 'won El Pique'}!`, '', fmtClp(amount), 5000);
+              setPique(prev => ({ ...prev, settled: true, active: false, tied: [], winner: { playerId: hitIds[0], playerName: winner?.name, amount } }));
+            } else {
+              setPique(prev => ({ ...prev, tied: hitIds }));
+            }
+          }, 1700);
+        }
+      }
 
       const entry = { id: Date.now() + '', ts: tstamp(), msg: `Salió el ${num}`, type: 'draw' };
       announce('draw', `¡${num}!`, num, '', 1600);
       setBallKey(k => k + 1);
-      return { ...prev, calledNumbers: newCalled, lastDrawn: num, log: [entry, ...prev.log] };
+      return { ...prev, calledNumbers: [...prev.calledNumbers, num], lastDrawn: num, log: [entry, ...prev.log] };
     });
   }, [me, announce]);
 
@@ -1668,7 +1677,7 @@ export default function App() {
           onReject={rejectRequest}
           showSnoop={snoop} setShowSnoop={setSnoop}
           ballKey={ballKey}
-          onLeave={() => { setGame(INIT_GAME); setScreen('lobby'); }}
+          onLeave={() => { setGame(INIT_GAME); setPique(prev => ({ ...INIT_PIQUE, enabled: prev.enabled, stake: prev.stake })); setScreen('lobby'); }}
           onSettle={() => setScreen('settle')}
           onShowBalances={() => setShowBalances(true)}
           pique={pique} piqueAction={piqueAction}
