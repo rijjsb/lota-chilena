@@ -1041,13 +1041,21 @@ function SnoopModal({ players, game, onClose, onValidate, onReject, lang }) {
               </div>
               {game.requests.map(req => {
                 const pl = players.find(p => p.id === req.playerId);
-                const valid = pl && isValid(req.type, CARTONES[pl.cartonIdx], pl.marked, game.calledNumbers);
+                const valid = pl && (req.type === 'pique'
+                  ? game.calledNumbers.some(n => CARTONES[pl.cartonIdx].rows.some(row => row.includes(n)))
+                  : isValid(req.type, CARTONES[pl.cartonIdx], pl.marked, game.calledNumbers));
+                const validMsg = req.type === 'pique'
+                  ? (lang==='es' ? '✅ Tiene un número cantado en su cartón' : '✅ Has a called number on their card')
+                  : (lang==='es' ? '✅ Válido según marcas y números' : '✅ Valid by marks and numbers');
+                const invalidMsg = req.type === 'pique'
+                  ? (lang==='es' ? '❌ Ningún número cantado en su cartón aún' : '❌ No called number on their card yet')
+                  : (lang==='es' ? '❌ Las marcas no coinciden con cantados' : '❌ Marks don\'t match called numbers');
                 return (
                   <div key={req.id} className="req-banner">
                     <div>
                       <div className="req-type">¡{req.type.toUpperCase()}! — {req.playerName}</div>
                       <p className="xs dim mt4">
-                        {req.ts} · {valid ? '✅ Válido según marcas y números' : '❌ Las marcas no coinciden con cantados'}
+                        {req.ts} · {valid ? validMsg : invalidMsg}
                       </p>
                     </div>
                     <div className="flex g6">
