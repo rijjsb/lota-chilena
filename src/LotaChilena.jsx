@@ -651,7 +651,7 @@ function LandingView({ onCreate, onJoin, lang, onToggleLang, initialCode = '' })
       {/* Radial vignette — darkens edges, lets centre breathe */}
       <div aria-hidden="true" style={{
         position:'absolute', inset:0, zIndex:1,
-        background:'radial-gradient(ellipse at 50% 48%, rgba(18,8,4,0) 0%, rgba(18,8,4,0.65) 75%, rgba(18,8,4,0.75) 100%)',
+        background:'radial-gradient(ellipse at 50% 65%, rgba(18,8,4,0) 20%, rgba(18,8,4,0.65) 70%, rgba(18,8,4,0.75) 100%)',
         pointerEvents:'none',
       }} />
       {/* All content sits above the background layers */}
