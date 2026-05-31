@@ -382,6 +382,9 @@ html,body{height:100%}
 .pz-linea:not(:disabled):hover{background:#C94B28;color:#fff;transform:translateY(-2px)}
 .pz-lota{border-color:#27AE60;color:#27AE60}
 .pz-lota:not(:disabled):hover{background:#27AE60;color:#fff;transform:translateY(-2px)}
+.pz-pique{border-color:#9B59B6;color:#BE8EE8;width:100%}
+.pz-pique:not(:disabled):hover{background:#9B59B6;color:#fff;transform:translateY(-2px)}
+.pz-lota:not(:disabled):hover{background:#27AE60;color:#fff;transform:translateY(-2px)}
 .pz-won{text-decoration:line-through;opacity:.45}
 
 /* ── MC TOWER ── */
@@ -1209,7 +1212,7 @@ function TieBreakModal({ tiedPlayers, piqueAmount, onSplit, onKeepDrawing, lang 
   );
 }
 
-function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, onValidate, onReject, showSnoop, setShowSnoop, ballKey, onLeave, onSettle, onShowBalances, pique, piqueAction, lang, onToggleLang }) {
+function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, onClaimPique, onValidate, onReject, showSnoop, setShowSnoop, ballKey, onLeave, onSettle, onShowBalances, pique, piqueAction, lang, onToggleLang }) {
   const [showLeaveWarn, setShowLeaveWarn] = useState(false);
   const carton = CARTONES[me.cartonIdx];
   const total = calcPot(players.length, settings.apuesta);
@@ -1220,6 +1223,13 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
   const canTerna = !terna && canReq('terna', carton, me.marked);
   const canLinea = !!terna && !linea && canReq('linea', carton, me.marked);
   const canLota  = !!linea && !lota  && canReq('lota',  carton, me.marked);
+
+  // Pique button: active participant + at least 1 called number on card + not already claimed
+  const inPique      = pique.active && !pique.settled && pique.participants?.includes(me.id);
+  const canClaimPiq  = inPique
+    && !game.requests.some(r => r.type === 'pique' && r.playerId === me.id)
+    && game.calledNumbers.some(n => carton.rows.some(row => row.includes(n)));
+  const pendingPiqReq = game.requests.some(r => r.type === 'pique' && r.playerId === me.id);
 
   const recent = [...game.calledNumbers].reverse().slice(0, VISIBLE_LAST_CALLS);
 
@@ -1281,6 +1291,28 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
           <CartonCard carton={carton} marked={me.marked} calledNums={game.calledNumbers}
             skin={me.skin} onToggle={onMark} />
 
+          {/* Pique button — shown to participants only, below prize row */}
+          {(inPique || pique.settled) && (
+            <div style={{width:'100%',maxWidth:540}}>
+              <button className={`pz-btn pz-pique${pique.settled?' pz-won':''}`}
+                disabled={pique.settled || pendingPiqReq || !canClaimPiq}
+                onClick={onClaimPique}>
+                {pique.settled
+                  ? `✓ ⚡ ${lang==='es'?'Pique':'Pique'} — ${pique.winner?.playerName}`
+                  : pendingPiqReq
+                    ? `⚡ ${lang==='es'?'¡Enviado! Esperando…':'Sent! Waiting…'}`
+                    : '⚡ ¡PIQUE!'}
+                <span className="pz-sub">
+                  {pique.settled
+                    ? fmtClp(pique.winner?.amount ?? 0)
+                    : canClaimPiq
+                      ? lang==='es' ? '¡Tienes un número! ✓' : 'You have a number! ✓'
+                      : lang==='es' ? 'Esperando tu primer número…' : 'Waiting for your first number…'}
+                </span>
+              </button>
+            </div>
+          )}
+
           {/* Prize request buttons */}
           <div className="pz-row">
             <button className={`pz-btn pz-terna${terna ? ' pz-won' : ''}`}
@@ -1337,19 +1369,22 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
                     <div key={e.id} className={`le le-${e.type === 'pique-tie' ? 'req' : e.type}`}>
                       <span>{e.msg}</span>
                       <div className="flex ac g6">
-                        {e.type === 'req' && e.reqId && (
-                          <button className="btn btn-green btn-sm" onClick={() => onValidate(e.reqId)}>✓</button>
-                        )}
-                        {e.type === 'pique-tie' && !pique.settled && (
-                          <>
-                            <button className="btn btn-gold btn-sm" style={{fontSize:'.65rem',padding:'3px 7px'}} onClick={() => piqueAction('split')}>
-                              {lang==='es'?'Dividir':'Split'}
-                            </button>
-                            <button className="btn btn-ghost btn-sm" style={{fontSize:'.65rem',padding:'3px 7px'}} onClick={() => piqueAction('keep')}>
-                              {lang==='es'?'Seguir':'Keep'}
-                            </button>
-                          </>
-                        )}
+                        {e.type === 'req' && e.reqId && (() => {
+                          const thisReq = game.requests.find(r => r.id === e.reqId);
+                          const isPique = thisReq?.type === 'pique';
+                          const otherPiqueReqs = isPique ? game.requests.filter(r => r.type === 'pique' && r.id !== e.reqId) : [];
+                          return (
+                            <>
+                              <button className="btn btn-green btn-sm" onClick={() => onValidate(e.reqId)}>✓</button>
+                              {isPique && otherPiqueReqs.length > 0 && !pique.settled && (
+                                <button className="btn btn-sm" style={{fontSize:'.62rem',padding:'3px 7px',background:'#9B59B6',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontFamily:"'Nunito',sans-serif",fontWeight:800}}
+                                  onClick={() => piqueAction('split', [...otherPiqueReqs.map(r=>r.playerId), thisReq.playerId])}>
+                                  {lang==='es'?'Dividir':'Split'}
+                                </button>
+                              )}
+                            </>
+                          );
+                        })()}
                         <span className="le-ts">{e.ts}</span>
                       </div>
                     </div>
@@ -1892,47 +1927,6 @@ export default function App() {
       .update({ called_numbers: newCalled, last_drawn: num, log: newLog })
       .eq('id', gameIdRef.current);
 
-    // Pique check — delayed so draw announcement clears first
-    const pq = piqueRef.current;
-    if (pq.active && !pq.settled) {
-      const checkList = pq.tied.length > 0 ? pq.tied : pq.participants;
-      const hitIds = checkList.filter(pid => {
-        const p = playersRef.current.find(x => x.id === pid);
-        return p && CARTONES[p.cartonIdx].rows.some(row => row.includes(num));
-      });
-      if (hitIds.length > 0) {
-        setTimeout(async () => {
-          const freshPique = piqueRef.current;
-          if (freshPique.settled) return;
-          const currentLog = gameRef.current.log;
-          const es = langRef.current === 'es';
-          if (hitIds.length === 1) {
-            const winner = playersRef.current.find(x => x.id === hitIds[0]);
-            const amount = freshPique.participants.length * freshPique.stake;
-            const newPiqueState = { ...freshPique, settled: true, active: false, tied: [], winner: { playerId: hitIds[0], playerName: winner?.name, amount } };
-            const logEntry = { id: Date.now()+'', ts: tstamp(), msg: `⚡ ${winner?.name} ${es?'ganó El Pique':'won El Pique'} — ${fmtClp(amount)}`, type: 'win' };
-            const newLog = [logEntry, ...currentLog];
-            setPique(newPiqueState);
-            setGame(prev => ({ ...prev, log: newLog }));
-            setPlayers(pp => pp.map(p => p.id === hitIds[0] ? { ...p, balance: p.balance + amount } : p));
-            if (hitIds[0] === meRef.current?.id) setMe(m => ({ ...m, balance: m.balance + amount }));
-            announce('win', `¡${winner?.name} ${es?'ganó El Pique':'won El Pique'}!`, '', fmtClp(amount), 5000);
-            await Promise.all([
-              supabase.from('games').update({ pique_state: newPiqueState, log: newLog }).eq('id', gameIdRef.current),
-              supabase.from('players').update({ balance: (winner?.balance ?? 0) + amount }).eq('id', hitIds[0]),
-            ]);
-          } else {
-            // Tie — write to log and DB so all players see it
-            const names = hitIds.map(id => playersRef.current.find(p=>p.id===id)?.name).filter(Boolean).join(' y ');
-            const tieEntry = { id: Date.now()+'', ts: tstamp(), msg: `⚡ ${es?'Empate en El Pique':'El Pique tie'}: ${names}`, type: 'pique-tie', tiedIds: hitIds };
-            const newLog = [tieEntry, ...currentLog];
-            setPique(prev => ({ ...prev, tied: hitIds }));
-            setGame(prev => ({ ...prev, log: newLog }));
-            await supabase.from('games').update({ log: newLog }).eq('id', gameIdRef.current);
-          }
-        }, 1700);
-      }
-    }
   }, [game, announce]);
 
   // ── TOGGLE MARK ───────────────────────────────────────────
@@ -1943,6 +1937,29 @@ export default function App() {
     setPlayers(pp => pp.map(p => p.id === me.id ? { ...p, marked: nm } : p));
     await supabase.from('players').update({ marked: nm }).eq('id', me.id);
   }, [me, game.status]);
+
+  // ── CLAIM PIQUE (skill-based button) ─────────────────────
+  const claimPique = useCallback(async () => {
+    if (!me || game.status !== 'active') return;
+    const pq = piqueRef.current;
+    if (!pq.active || pq.settled) return;
+    if (!pq.participants?.includes(me.id)) return;
+    // Must have at least one called number on card
+    const hasHit = game.calledNumbers.some(n => CARTONES[me.cartonIdx].rows.some(row => row.includes(n)));
+    if (!hasHit) return;
+    // Already have a pending pique claim
+    if (game.requests.some(r => r.type === 'pique' && r.playerId === me.id)) return;
+
+    const reqId = Date.now() + '';
+    const req   = { id: reqId, playerId: me.id, playerName: me.name, type: 'pique', ts: tstamp() };
+    const entry = { id: reqId, ts: tstamp(), msg: `${me.name} grita ⚡ ¡PIQUE!`, type: 'req', reqId };
+    const newRequests = [...game.requests, req];
+    const newLog      = [entry, ...game.log];
+
+    setGame(prev => ({ ...prev, requests: newRequests, log: newLog }));
+    announce('request', `¡${me.name}!`, 'pique', '⚡ ¡PIQUE!', 4000);
+    await supabase.from('games').update({ requests: newRequests, log: newLog }).eq('id', gameIdRef.current);
+  }, [me, game, announce]);
 
   // ── CLAIM PRIZE ───────────────────────────────────────────
   const claimPrize = useCallback(async (type) => {
@@ -1969,24 +1986,69 @@ export default function App() {
     if (!req) return;
     const player = players.find(p => p.id === req.playerId);
     if (!player) return;
-    // Prize already taken by someone else → auto-reject to prevent overwriting
+    const es = langRef.current === 'es';
+
+    // ── Pique claim ──────────────────────────────────────────
+    if (req.type === 'pique') {
+      const pq = piqueRef.current;
+      if (pq.settled) { // already settled, reject
+        const newReqs = game.requests.filter(r => r.id !== reqId);
+        const invEntry = { id: Date.now()+'', ts: tstamp(), msg: `✗ ${req.playerName} — ${es?'Pique ya resuelto':'Pique already settled'}`, type:'inv' };
+        setGame(prev => ({ ...prev, requests: newReqs, log: [invEntry, ...prev.log] }));
+        await supabase.from('games').update({ requests: newReqs, log: [invEntry, ...game.log] }).eq('id', gameIdRef.current);
+        return;
+      }
+      // Validate: must be a participant with at least 1 called number on card
+      const hasHit = game.calledNumbers.some(n => CARTONES[player.cartonIdx].rows.some(row => row.includes(n)));
+      const amount = pq.participants.length * pq.stake;
+      // Remove this request + all other pique requests (auto-reject)
+      const otherPiqueReqs = game.requests.filter(r => r.id !== reqId && r.type === 'pique');
+      const newReqs = game.requests.filter(r => r.id !== reqId && r.type !== 'pique');
+      const rejectEntries = otherPiqueReqs.map(r => ({ id: Date.now()+Math.random()+'', ts: tstamp(), msg: `✗ ${r.playerName} — ${es?'Pique ya reclamado':'Pique already claimed'}`, type:'inv' }));
+
+      if (hasHit) {
+        const newPiqueState = { ...pq, settled: true, active: false, tied: [], winner: { playerId: req.playerId, playerName: req.playerName, amount } };
+        const winEntry = { id: Date.now()+'', ts: tstamp(), msg: `⚡ ¡${req.playerName} ${es?'ganó El Pique':'won El Pique'}! — ${fmtClp(amount)}`, type:'win' };
+        const newLog = [winEntry, ...rejectEntries, ...game.log];
+        setPique(newPiqueState);
+        setGame(prev => ({ ...prev, requests: newReqs, log: newLog }));
+        setPlayers(prev => prev.map(p => p.id === req.playerId ? { ...p, balance: p.balance + amount } : p));
+        if (req.playerId === me.id) setMe(prev => ({ ...prev, balance: prev.balance + amount }));
+        announce('win', `¡${req.playerName} ${es?'ganó El Pique':'won El Pique'}!`, '', fmtClp(amount), 5500);
+        await Promise.all([
+          supabase.from('games').update({ pique_state: newPiqueState, requests: newReqs, log: newLog }).eq('id', gameIdRef.current),
+          supabase.from('players').update({ balance: player.balance + amount }).eq('id', req.playerId),
+        ]);
+      } else {
+        const invEntry = { id: Date.now()+'', ts: tstamp(), msg: `✗ ${req.playerName} — ${es?'sin número cantado en su cartón':'no called number on their card'}`, type:'inv' };
+        const allNewReqs = game.requests.filter(r => r.id !== reqId);
+        const newLog = [invEntry, ...game.log];
+        setGame(prev => ({ ...prev, requests: allNewReqs, log: newLog }));
+        announce('invalid', `¡Incorrecto!`, '', req.playerName, 2500);
+        await supabase.from('games').update({ requests: allNewReqs, log: newLog }).eq('id', gameIdRef.current);
+      }
+      return;
+    }
+
+    // ── Regular prize claim ───────────────────────────────────
+    // Prize already taken by someone else → auto-reject
     if (game.prizes[req.type]) {
-      const invEntry = { id: Date.now()+'', ts: tstamp(), msg: `✗ ${req.playerName} — ya fue reclamado por ${game.prizes[req.type].playerName}`, type: 'inv' };
+      const invEntry = { id: Date.now()+'', ts: tstamp(), msg: `✗ ${req.playerName} — ${es?'ya fue reclamado por':'already claimed by'} ${game.prizes[req.type].playerName}`, type: 'inv' };
       const newReqs  = game.requests.filter(r => r.id !== reqId);
       const newLog   = [invEntry, ...game.log];
       setGame(prev => ({ ...prev, requests: newReqs, log: newLog }));
-      announce('invalid', `Ya reclamado!`, '', `${game.prizes[req.type].playerName} ya ganó la ${req.type.toUpperCase()}`, 2500);
+      announce('invalid', es?'¡Ya reclamado!':'Already claimed!', '', `${game.prizes[req.type].playerName} ${es?'ya ganó la':'already won'} ${req.type.toUpperCase()}`, 2500);
       await supabase.from('games').update({ requests: newReqs, log: newLog }).eq('id', gameIdRef.current);
       return;
     }
-    const valid  = isValid(req.type, CARTONES[player.cartonIdx], player.marked, game.calledNumbers);
+    const valid   = isValid(req.type, CARTONES[player.cartonIdx], player.marked, game.calledNumbers);
     const newReqs = game.requests.filter(r => r.id !== reqId);
 
     if (valid) {
       const total  = calcPot(players.length, settings.apuesta);
       const pctMap = { terna: settings.ternaPct, linea: settings.lineaPct, lota: settings.lotaPct };
       const amt    = calcPrize(total, pctMap[req.type]);
-      const winEntry = { id: Date.now()+'', ts: tstamp(), msg: `✓ ${req.playerName} gana la ${req.type.toUpperCase()} — ${fmtClp(amt)}`, type:'win' };
+      const winEntry = { id: Date.now()+'', ts: tstamp(), msg: `✓ ${req.playerName} ${es?'gana la':'wins'} ${req.type.toUpperCase()} — ${fmtClp(amt)}`, type:'win' };
       const newPrizes = { ...game.prizes, [req.type]: { playerId: req.playerId, playerName: req.playerName, amount: amt } };
       const newLog    = [winEntry, ...game.log];
 
@@ -1994,17 +2056,16 @@ export default function App() {
       setPlayers(prev => prev.map(p => p.id === req.playerId ? { ...p, balance: p.balance + amt } : p));
       if (req.playerId === me.id) setMe(prev => ({ ...prev, balance: prev.balance + amt }));
       setStats(prev => { const e = prev[req.playerName]||EMPTY_STAT; return {...prev,[req.playerName]:{...e,wins:{...e.wins,[req.type]:e.wins[req.type]+1}}}; });
-      announce('win', `¡${req.playerName} gana la ${req.type.toUpperCase()}!`, req.type, fmtClp(amt), 5500);
-
+      announce('win', `¡${req.playerName} ${es?'gana la':'wins'} ${req.type.toUpperCase()}!`, req.type, fmtClp(amt), 5500);
       await Promise.all([
         supabase.from('games').update({ prizes: newPrizes, requests: newReqs, log: newLog }).eq('id', gameIdRef.current),
         supabase.from('players').update({ balance: player.balance + amt }).eq('id', req.playerId),
       ]);
     } else {
-      const invEntry = { id: Date.now()+'', ts: tstamp(), msg: `✗ Solicitud inválida de ${req.playerName}`, type:'inv' };
+      const invEntry = { id: Date.now()+'', ts: tstamp(), msg: `✗ ${es?'Solicitud inválida de':'Invalid claim from'} ${req.playerName}`, type:'inv' };
       const newLog = [invEntry, ...game.log];
       setGame(prev => ({ ...prev, requests: newReqs, log: newLog }));
-      announce('invalid', `¡Incorrecto, ${req.playerName}!`, '', 'Las marcas no coinciden con los cantados', 3000);
+      announce('invalid', `¡Incorrecto, ${req.playerName}!`, '', es?'Las marcas no coinciden con los cantados':'Marks don\'t match called numbers', 3000);
       await supabase.from('games').update({ requests: newReqs, log: newLog }).eq('id', gameIdRef.current);
     }
   }, [game, players, me, settings, announce]);
@@ -2022,27 +2083,30 @@ export default function App() {
   }, [game, announce]);
 
   // ── PIQUE TIE ACTION ──────────────────────────────────────
-  const piqueAction = useCallback(async (action) => {
+  const piqueAction = useCallback(async (action, splitIds = null) => {
     const pq  = piqueRef.current;
     const es  = langRef.current === 'es';
     const currentLog = gameRef.current.log;
     if (action === 'split') {
+      const winnerIds = splitIds || pq.tied;
       const amount    = pq.participants.length * pq.stake;
-      const perPlayer = Math.floor(amount / pq.tied.length);
-      const names     = pq.tied.map(id => playersRef.current.find(p=>p.id===id)?.name).filter(Boolean).join(es?' y ':' & ');
+      const perPlayer = Math.floor(amount / winnerIds.length);
+      const names     = winnerIds.map(id => playersRef.current.find(p=>p.id===id)?.name).filter(Boolean).join(es?' y ':' & ');
       const newPs     = { ...pq, settled: true, active: false, tied: [], winner: { playerName: names, amount } };
       const logEntry  = { id: Date.now()+'', ts: tstamp(), msg: `⚡ ${es?'Empate resuelto':'Tie resolved'}: ${names} ${es?'dividieron el Pique':'split El Pique'} — ${fmtClp(perPlayer)} ${es?'c/u':'each'}`, type: 'win' };
+      // Remove all pending pique requests
+      const newReqs   = gameRef.current.requests.filter(r => r.type !== 'pique');
       const newLog    = [logEntry, ...currentLog];
       setPique(newPs);
-      setGame(prev => ({ ...prev, log: newLog }));
-      pq.tied.forEach(async pid => {
+      setGame(prev => ({ ...prev, requests: newReqs, log: newLog }));
+      winnerIds.forEach(async pid => {
         const p = playersRef.current.find(x => x.id === pid);
         if (!p) return;
         setPlayers(pp => pp.map(x => x.id === pid ? { ...x, balance: x.balance + perPlayer } : x));
         if (pid === meRef.current?.id) setMe(m => ({ ...m, balance: m.balance + perPlayer }));
         await supabase.from('players').update({ balance: p.balance + perPlayer }).eq('id', pid);
       });
-      await supabase.from('games').update({ pique_state: newPs, log: newLog }).eq('id', gameIdRef.current);
+      await supabase.from('games').update({ pique_state: newPs, requests: newReqs, log: newLog }).eq('id', gameIdRef.current);
     } else {
       // keep drawing — narrow to tied players
       const names  = pq.tied.map(id => playersRef.current.find(p=>p.id===id)?.name).filter(Boolean).join(es?' y ':' & ');
@@ -2119,6 +2183,7 @@ export default function App() {
           onDraw={drawNumber}
           onMark={toggleMark}
           onClaim={claimPrize}
+          onClaimPique={claimPique}
           onValidate={validateWin}
           onReject={rejectRequest}
           showSnoop={snoop} setShowSnoop={setSnoop}
