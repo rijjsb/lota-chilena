@@ -9,14 +9,16 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
 
 // ── Conversion helpers ────────────────────────────────────────
 export const supaToPlayer = (row) => ({
-  id:        row.id,
-  name:      row.name,
-  isMC:      row.is_mc,
-  cartonIdx: row.carton_idx,
-  skin:      row.skin,
-  marked:    row.marked    || [],
-  balance:   row.balance,
-  lastSeen:  row.last_seen || null,
+  id:         row.id,
+  name:       row.name,
+  isMC:       row.is_mc,
+  cartonIdxs: (row.carton_idxs && row.carton_idxs.length)
+                ? row.carton_idxs
+                : (row.carton_idx != null ? [row.carton_idx] : []),
+  skin:       row.skin,
+  marked:     row.marked    || [],
+  balance:    row.balance,
+  lastSeen:   row.last_seen || null,
 });
 
 // Player is online if they updated last_seen within 45s

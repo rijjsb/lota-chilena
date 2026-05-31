@@ -22,7 +22,8 @@ create table if not exists public.players (
   name            text not null,
   normalized_name text not null,   -- lowercase, no accents, no spaces
   is_mc           boolean not null default false,
-  carton_idx      integer not null default 0,
+  carton_idx      integer not null default 0,        -- first card (legacy + sorting)
+  carton_idxs     integer[] not null default '{}',   -- all cards for this player (2 per player)
   skin            text not null default 'dot',
   marked          integer[] not null default '{}',
   balance         integer not null default 0,
