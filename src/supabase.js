@@ -12,9 +12,7 @@ export const supaToPlayer = (row) => ({
   id:         row.id,
   name:       row.name,
   isMC:       row.is_mc,
-  cartonIdxs: (row.carton_idxs && row.carton_idxs.length)
-                ? row.carton_idxs
-                : (row.carton_idx != null ? [row.carton_idx] : []),
+  cartonIdxs: row.carton_idxs || [],
   skin:       row.skin,
   marked:     row.marked    || [],
   balance:    row.balance,
