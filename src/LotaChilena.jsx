@@ -64,15 +64,14 @@ const CARTONES = [
   {id:50,rows:[[5,17,28,30,46,0,0,0,0],[0,13,23,39,0,58,67,0,0],[7,0,0,0,41,54,60,79,84]]},
 ];
 
+// fit:'contain' = show full image (no crop); default = 'cover' (circle crop)
 const SKINS = [
   {id:'dot',    label:'Clásico',  img:null},
   {id:'x',      label:'✕',        img:null},
-  {id:'poroto', label:'Poroto',   img:'/skins/Poroto1.jpg'},
+  {id:'poroto', label:'Poroto',   img:'/skins/Poroto1.jpg', fit:'contain'},
   {id:'peso',   label:'$1',       img:'/skins/peso1a.jpg'},
   {id:'peso5',  label:'$5',       img:'/skins/peso5a.jpg'},
-  {id:'escudo', label:'Escudo',   img:'/skins/Escudo.jpg'},
-  {id:'lucas',  label:'20 Lucas', img:'/skins/20lucas.jpg'},
-  {id:'cheque', label:'Cheque',   img:'/skins/cheque.jpg'},
+  {id:'lucas',  label:'20 Lucas', img:'/skins/20lucas.jpg', fit:'contain'},
 ];
 
 const DEMO_PLAYERS = [
@@ -533,8 +532,10 @@ function LangToggle({ lang, onToggle }) {
   return (
     <button onClick={onToggle}
       title={lang === 'es' ? 'Switch to English' : 'Cambiar a Español'}
-      style={{background:'transparent',border:'1px solid rgba(212,82,42,.28)',borderRadius:8,padding:'5px 9px',cursor:'pointer',fontSize:'1.15rem',lineHeight:1,flexShrink:0}}>
-      {lang === 'es' ? '🇨🇱' : '🇳🇿'}
+      style={{background:'transparent',border:'1px solid rgba(212,82,42,.28)',borderRadius:8,padding:'5px 11px',cursor:'pointer',fontSize:'.82rem',lineHeight:1,flexShrink:0,display:'flex',alignItems:'center',gap:5,color:'#FFF3E0',fontFamily:"'Nunito',sans-serif",fontWeight:800}}>
+      {lang === 'es'
+        ? <><span style={{fontSize:'1.2rem'}}>🇨🇱</span> ES</>
+        : <><span style={{fontSize:'1.2rem'}}>🇳🇿</span> EN</>}
     </button>
   );
 }
@@ -542,7 +543,15 @@ function LangToggle({ lang, onToggle }) {
 // Skin marker rendered inside a carton cell
 function Marker({ skin }) {
   const s = SKINS.find(x => x.id === skin);
-  if (s?.img) return <img src={s.img} alt={s.label} style={{width:'80%',height:'80%',objectFit:'cover',borderRadius:'50%'}} />;
+  if (s?.img) {
+    const contain = s.fit === 'contain';
+    return <img src={s.img} alt={s.label} style={{
+      width: contain ? '92%' : '80%',
+      height: contain ? '92%' : '80%',
+      objectFit: contain ? 'contain' : 'cover',
+      borderRadius: contain ? 2 : '50%',
+    }} />;
+  }
   if (skin === 'dot') return <div className="mk-dot" />;
   if (skin === 'x')   return <span className="mk-x">✕</span>;
   return <div className="mk-dot" />;
@@ -822,7 +831,7 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
                 <button key={s.id} className={`sk-btn${me.skin === s.id ? ' active' : ''}`} onClick={() => onSkin(s.id)}
                   title={s.label} style={{overflow:'hidden',padding:s.img?0:undefined}}>
                   {s.img
-                    ? <img src={s.img} alt={s.label} style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:7}} />
+                    ? <img src={s.img} alt={s.label} style={{width:'100%',height:'100%',objectFit:s.fit==='contain'?'contain':'cover',borderRadius:s.fit==='contain'?4:7}} />
                     : s.id === 'dot'
                       ? <div style={{ width:20,height:20,borderRadius:'50%',background:'rgba(39,174,96,.8)',border:'2px solid #27AE60' }} />
                       : s.label}
@@ -843,7 +852,6 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
                 🇨🇱 {t(lang,'chileanSounds')}
               </button>
             </div>
-            <p className="xs dim mt8" style={{lineHeight:1.4}}>{t(lang,'soundsHint')}</p>
           </div>
 
           {/* El Pique */}
