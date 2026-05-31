@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 /* ═══════════════════════════════════════════════════════════════
    LOTA CHILENA 🎱 — Chilean Family Bingo
@@ -125,10 +125,13 @@ const TR = {
   waitingMC:      {es:'Esperando que el Animador inicie la partida…', en:'Waiting for MC to start…'},
   balances:       {es:'💰 Balances',                            en:'💰 Balances'},
   leaveRoom:      {es:'← Salir',                               en:'← Exit'},
+  shareLink:      {es:'📤 Compartir sala',                     en:'📤 Share room'},
+  shareCopied:    {es:'✓ ¡Copiado!',                          en:'✓ Copied!'},
+  shareText:      {es:'¡Únete a mi sala de Lota! Código:',    en:'Join my Lota room! Code:'},
   lobby:          {es:'Lobby',                                  en:'Lobby'},
   // Pique
   pique:          {es:'El Pique',                               en:'El Pique'},
-  piqueDesc:      {es:'Una pequeña apuesta - El primer jugador al que le caiga un número en su cartón gana (se puede repartir con otros ganadores).', en:'A little wager - First player to have a called number land on their card wins (you can divide it with other winners).'},
+  piqueDesc:      {es:'Una pequeña apuesta - El primer jugador al que le caiga un número en su cartón gana', en:'A little wager - First player to have a called number land on their card wins'},
   piqueEnable:    {es:'Activar El Pique',                       en:'Enable El Pique'},
   piqueDisable:   {es:'Desactivar El Pique',                    en:'Disable El Pique'},
   piqueStake:     {es:'Apuesta del Pique (CLP)',                en:'Pique stake (CLP)'},
@@ -259,33 +262,33 @@ html,body{height:100%}
 .landing{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;gap:36px}
 .hero{text-align:center}
 .hero .logo-txt{font-size:clamp(4.5rem,11vw,8rem)}
-.tagline{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.25em;color:#9E7855;margin-top:.6rem}
+.tagline{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.25em;color:#C8A070;margin-top:.6rem;text-shadow:0 1px 8px rgba(0,0,0,.8)}
 .cards-wrap{display:flex;gap:18px;width:100%;max-width:580px;flex-wrap:wrap;justify-content:center}
-.lc{background:#1C0E07;border:1px solid rgba(212,82,42,.2);border-radius:22px;padding:28px;flex:1;min-width:240px;display:flex;flex-direction:column;gap:14px;transition:border-color .25s,transform .2s}
-.lc:hover{border-color:rgba(212,82,42,.5);transform:translateY(-3px)}
+.lc{background:rgba(12, 5, 2, 0.98);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(212,82,42,.9);border-radius:22px;padding:28px;flex:1;min-width:240px;display:flex;flex-direction:column;gap:14px;transition:border-color .25s,transform .2s}
+.lc:hover{border-color:rgba(212,82,42,.65);transform:translateY(-3px)}
 .lc-icon{font-size:2.2rem;text-align:center}
-.lc h2{font-size:1.2rem;font-weight:900;text-align:center}
-.lc p{font-size:.8rem;color:#9E7855;text-align:center;line-height:1.5}
-.or-div{display:flex;align-items:center;gap:12px;color:#7A5438;font-weight:900;font-size:.7rem;letter-spacing:.12em;width:100%;max-width:580px}
+.lc h2{font-size:1.2rem;font-weight:900;text-align:center;color:#FAEBD7}
+.lc p{font-size:.8rem;color:#F0D8B0;text-align:center;line-height:1.5}
+.or-div{display:flex;align-items:center;gap:12px;color:#BF8A60;font-weight:900;font-size:.7rem;letter-spacing:.12em;width:100%;max-width:580px}
 .or-div::before,.or-div::after{content:'';flex:1;height:1px;background:rgba(212,82,42,.2)}
 
 /* ── INPUTS ── */
 .fld{display:flex;flex-direction:column;gap:5px}
-.lbl{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#B08868}
-.inp{background:rgba(255,255,255,.055);border:1px solid rgba(212,82,42,.22);border-radius:10px;padding:11px 14px;color:#FFF3E0;font-size:1rem;font-family:'Nunito',sans-serif;width:100%;outline:none;transition:border-color .2s}
+.lbl{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:#F0D0A0}
+.inp{background:rgba(255,255,255,.18);border:1px solid rgba(212,82,42,.32);border-radius:10px;padding:11px 14px;color:#FFF3E0;font-size:1rem;font-family:'Nunito',sans-serif;width:100%;outline:none;transition:border-color .2s}
 .inp:focus{border-color:#C94B28}
-.inp::placeholder{color:#7A5040}
+.inp::placeholder{color:#D4B080}
 .inp-code{letter-spacing:.35em;text-transform:uppercase;font-weight:800;font-size:1.15rem;text-align:center}
 .inp-num{-moz-appearance:textfield}
 .inp-num::-webkit-outer-spin-button,.inp-num::-webkit-inner-spin-button{-webkit-appearance:none}
 
 /* ── BUTTONS ── */
 .btn{padding:11px 22px;border-radius:10px;border:none;font-family:'Nunito',sans-serif;font-weight:800;cursor:pointer;transition:all .18s;font-size:.93rem;display:inline-flex;align-items:center;justify-content:center;gap:6px;letter-spacing:.02em}
-.btn:disabled{opacity:.55;cursor:not-allowed!important;transform:none!important;pointer-events:none}
+.btn:disabled{opacity:.72;cursor:not-allowed!important;transform:none!important;pointer-events:none}
 .btn-gold{background:#E8B84B;color:#2C1810}
 .btn-gold:hover{background:#F5CC70;transform:translateY(-1px)}
-.btn-red{background:#C94B28;color:#fff}
-.btn-red:hover{background:#E05C38;transform:translateY(-1px)}
+.btn-red{background:#D94F28;color:#fff}
+.btn-red:hover{background:#E86038;transform:translateY(-1px)}
 .btn-ghost{background:transparent;color:#BFA080;border:1px solid rgba(212,82,42,.28)}
 .btn-ghost:hover{border-color:#C94B28;color:#C94B28}
 .btn-green{background:#27AE60;color:#fff}
@@ -534,10 +537,13 @@ function LangToggle({ lang, onToggle }) {
   return (
     <button onClick={onToggle}
       title={lang === 'es' ? 'Switch to English' : 'Cambiar a Español'}
-      style={{background:'transparent',border:'1px solid rgba(212,82,42,.28)',borderRadius:8,padding:'5px 11px',cursor:'pointer',fontSize:'.82rem',lineHeight:1,flexShrink:0,display:'flex',alignItems:'center',gap:5,color:'#FFF3E0',fontFamily:"'Nunito',sans-serif",fontWeight:800}}>
-      {lang === 'es'
-        ? <><span style={{fontSize:'1.2rem'}}>🇨🇱</span> ES</>
-        : <><span style={{fontSize:'1.2rem'}}>🇳🇿</span> EN</>}
+      style={{background:'transparent',border:'1px solid rgba(212,82,42,.28)',borderRadius:8,padding:'5px 11px',cursor:'pointer',fontSize:'.82rem',lineHeight:1,flexShrink:0,display:'flex',alignItems:'center',gap:6,color:'#FFF3E0',fontFamily:"'Nunito',sans-serif",fontWeight:800}}>
+      <img
+        src={lang === 'es' ? '/flags/cl.png' : '/flags/nz.png'}
+        alt={lang === 'es' ? 'Chile' : 'New Zealand'}
+        style={{width:20,height:20,objectFit:'cover',borderRadius:3,display:'block'}}
+      />
+      {lang === 'es' ? 'ES' : 'EN'}
     </button>
   );
 }
@@ -627,14 +633,30 @@ function MiniCarton({ carton, marked = [], calledNums = [] }) {
 // ────────────────────────────────────────────────────────────
 // LANDING
 // ────────────────────────────────────────────────────────────
-function LandingView({ onCreate, onJoin, lang, onToggleLang }) {
+function LandingView({ onCreate, onJoin, lang, onToggleLang, initialCode = '' }) {
   const [cName, setCName] = useState('');
-  const [jCode, setJCode] = useState('');
+  const [jCode, setJCode] = useState(initialCode);
   const [jName, setJName] = useState('');
 
   return (
-    <div className="landing">
-      <div style={{position:'absolute',top:16,right:16}}>
+    <div className="landing" style={{position:'relative'}}>
+      {/* Background photo — wooden bingo tokens */}
+      <img src="/lota-logo.png" aria-hidden="true" alt="" style={{
+        position:'absolute', inset:0, width:'100%', height:'100%',
+        objectFit:'cover', objectPosition:'center',
+        filter:'blur(1.5px) saturate(0.7)',
+        opacity:0.11,
+        pointerEvents:'none', userSelect:'none', zIndex:0,
+      }} />
+      {/* Radial vignette — darkens edges, lets centre breathe */}
+      <div aria-hidden="true" style={{
+        position:'absolute', inset:0, zIndex:1,
+        background:'radial-gradient(ellipse at 50% 65%, rgba(18,8,4,0) 20%, rgba(18,8,4,0.65) 70%, rgba(18,8,4,0.75) 100%)',
+        pointerEvents:'none',
+      }} />
+      {/* All content sits above the background layers */}
+      <div style={{position:'relative',zIndex:2,display:'contents'}}>
+      <div style={{position:'absolute',top:16,right:16,zIndex:3}}>
         <LangToggle lang={lang} onToggle={onToggleLang} />
       </div>
       <div className="hero">
@@ -681,7 +703,8 @@ function LandingView({ onCreate, onJoin, lang, onToggleLang }) {
         </div>
       </div>
 
-      <p className="xs dim tc">{t(lang,'offlineNote')}</p>
+      <p className="xs tc" style={{color:'#9A7050'}}>{t(lang,'offlineNote')}</p>
+      </div>{/* end z-index content wrapper */}
     </div>
   );
 }
@@ -689,6 +712,52 @@ function LandingView({ onCreate, onJoin, lang, onToggleLang }) {
 // ────────────────────────────────────────────────────────────
 // TRANSFER MODAL
 // ────────────────────────────────────────────────────────────
+function ShareModal({ room, onClose, lang }) {
+  const [copied, setCopied] = useState(false);
+  const shareUrl = `${window.location.origin}/${room.code}`;
+
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(shareUrl); } catch(_) {}
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2200);
+  };
+
+  const nativeShare = async () => {
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Lota Chilena', url: shareUrl }); } catch(_) {}
+    }
+  };
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal-box" style={{maxWidth:400}} onClick={e => e.stopPropagation()}>
+        <div className="modal-hdr">
+          <h2>📤 {lang==='es' ? 'Compartir sala' : 'Share room'}</h2>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>{t(lang,'closeBnt')}</button>
+        </div>
+        <div className="modal-body" style={{gap:12}}>
+          <p className="xs dim">{lang==='es'
+            ? 'Manda este enlace. Al abrirlo, el código ya estará listo — solo hay que poner el nombre.'
+            : 'Send this link. When opened, the code is pre-filled — they just enter their name.'}</p>
+          <div style={{background:'rgba(255,255,255,.04)',borderRadius:10,padding:'10px 14px',fontFamily:'Courier New,monospace',fontSize:'.88rem',color:'#E8B84B',letterSpacing:'.04em',textAlign:'center',fontWeight:900,wordBreak:'break-all'}}>
+            {shareUrl}
+          </div>
+          <button className="btn btn-block btn-gold" style={{padding:'13px',fontSize:'1rem'}} onClick={copyLink}>
+            {copied
+              ? '✓ ' + (lang==='es' ? '¡Copiado!' : 'Copied!')
+              : '📋 ' + (lang==='es' ? 'Copiar enlace' : 'Copy link')}
+          </button>
+          {typeof navigator !== 'undefined' && navigator.share && (
+            <button className="btn btn-block btn-ghost" style={{padding:'13px',fontSize:'1rem'}} onClick={nativeShare}>
+              📲 {lang==='es' ? 'Compartir por app…' : 'Share via app…'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TransferModal({ targetName, onConfirm, onCancel, lang }) {
   return (
     <div className="modal-bg" onClick={onCancel}>
@@ -716,6 +785,7 @@ function TransferModal({ targetName, onConfirm, onCancel, lang }) {
 // ────────────────────────────────────────────────────────────
 function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, onStart, onBack, onShowBalances, onTransferMC, pique, onPique, lang, onToggleLang }) {
   const [transferTarget, setTransferTarget] = useState(null);
+  const [showShare, setShowShare]           = useState(false);
   const taken  = players.filter(p => p.id !== me.id).map(p => p.cartonIdx);
   const pctSum = settings.ternaPct + settings.lineaPct + settings.lotaPct;
   const total  = calcPot(players.length, settings.apuesta);
@@ -728,6 +798,7 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
     onPique({ ...pique, participants: next });
   };
 
+
   return (
     <div className="lobby">
       <div className="lobby-hdr">
@@ -738,6 +809,9 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
         </div>
         <div className="flex g8 ac">
           {me.isMC && <span className="chip chip-mc">Animador 🎤</span>}
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowShare(true)}>
+            {t(lang,'shareLink')}
+          </button>
           <button className="btn btn-ghost btn-sm" onClick={onShowBalances}>{t(lang,'balances')}</button>
           <button className="btn btn-ghost btn-sm" onClick={onBack}>{t(lang,'leaveRoom')}</button>
           <LangToggle lang={lang} onToggle={onToggleLang} />
@@ -916,6 +990,9 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
           onConfirm={() => { onTransferMC(transferTarget.id); setTransferTarget(null); }}
           onCancel={() => setTransferTarget(null)}
         />
+      )}
+      {showShare && (
+        <ShareModal room={room} lang={lang} onClose={() => setShowShare(false)} />
       )}
     </div>
   );
@@ -1415,6 +1492,15 @@ export default function App() {
 
   const toggleLang = useCallback(() => setLang(l => l === 'es' ? 'en' : 'es'), []);
 
+  // Read room code from URL path (e.g. /ABC123) and pre-fill the join form
+  const urlCode = window.location.pathname.slice(1).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  const initialCode = urlCode.length === 6 ? urlCode : '';
+
+  // Clear the URL path once read so it doesn't linger
+  useEffect(() => {
+    if (initialCode) window.history.replaceState(null, '', '/');
+  }, [initialCode]);
+
   // ── Announcement system ──
   const announce = useCallback((type, msg, val = '', sub = '', dur = 3500) => {
     if (annTimer.current) clearTimeout(annTimer.current);
@@ -1649,7 +1735,7 @@ export default function App() {
       <style>{CSS}</style>
 
       {screen === 'landing' && (
-        <LandingView onCreate={createRoom} onJoin={joinRoom} lang={lang} onToggleLang={toggleLang} />
+        <LandingView onCreate={createRoom} onJoin={joinRoom} lang={lang} onToggleLang={toggleLang} initialCode={initialCode} />
       )}
 
       {screen === 'lobby' && (
