@@ -1846,7 +1846,12 @@ export default function App() {
         return supabase.from('players').update({ balance, marked: [] }).eq('id', p.id);
       }));
 
-      await supabase.from('rooms').update({ status: 'active', last_activity: new Date().toISOString() }).eq('code', room.code);
+      // Write active pique into rooms.settings so the realtime bounce-back restores active:true, not active:false
+      await supabase.from('rooms').update({
+        status: 'active',
+        last_activity: new Date().toISOString(),
+        settings: { ...settings, pique: piqueForGame },
+      }).eq('code', room.code);
 
       // Track stats locally
       setStats(prev => {
