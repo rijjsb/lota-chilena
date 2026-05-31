@@ -184,6 +184,64 @@ const TR = {
   stBalance:      {es:'Saldo',    en:'Balance'},
   // pct warnings
   pctWarn:        {es:'⚠ Los porcentajes deben sumar 100% (actual:', en:'⚠ Percentages must add up to 100% (current:'},
+  // Prize button hints
+  pzTernaHave:    {es:'Tienes 3 en fila ✓',     en:'You have 3 in a row ✓'},
+  pzTernaNeed:    {es:'3 marcas en fila',       en:'3 marks in a row'},
+  pzLineaHave:    {es:'Tienes fila completa ✓', en:'You have a full row ✓'},
+  pzLineaNeed:    {es:'Fila completa',          en:'Full row'},
+  pzLineaFirst:   {es:'Primero la Terna',       en:'Terna first'},
+  pzLotaHave:     {es:'Cartón lleno ✓',         en:'Full card ✓'},
+  pzLotaNeed:     {es:'Cartón completo',        en:'Full card'},
+  pzLotaFirst:    {es:'Primero la Línea',       en:'Línea first'},
+  // Pique button
+  piqSent:        {es:'¡Enviado! Esperando…',           en:'Sent! Waiting…'},
+  piqWaitNum:     {es:'Esperando tu primer número…',    en:'Waiting for your first number…'},
+  piqHaveNum:     {es:'¡Tienes un número! ✓',           en:'You have a number! ✓'},
+  // Misc UI
+  piqueNotEnabled:{es:'El Animador no ha activado El Pique.', en:'The MC hasn\'t enabled El Pique.'},
+  notAllReady:    {es:'Algunos jugadores aún no eligen sus 2 cartones.', en:'Some players haven\'t chosen their 2 cards yet.'},
+  removePlayer:   {es:'Quitar jugador',         en:'Remove player'},
+  connected:      {es:'Conectado',              en:'Connected'},
+  disconnected:   {es:'Desconectado',           en:'Disconnected'},
+  awards:         {es:'Premios',                en:'Awards'},
+  inPique:        {es:'En El Pique',            en:'In El Pique'},
+  you:            {es:'tú',                     en:'you'},
+  // Leave game modal
+  leaveQ:         {es:'¿Salir de la partida?',  en:'Leave the game?'},
+  leaveWarn:      {es:'Si sales como Animador, la partida terminará para todos los jugadores.', en:'If you leave as MC, the game will end for all players.'},
+  leaveYes:       {es:'Sí, terminar partida',   en:'Yes, end game'},
+  leaveNo:        {es:'← No, seguir jugando',   en:'← No, keep playing'},
+  // Remove player modal
+  rmQ:            {es:'¿Quitar a',              en:'Remove'},
+  rmFromRoom:     {es:'de la sala?',            en:'from the room?'},
+  rmNote:         {es:'Sus cartones quedarán libres. Puede volver a entrar con el mismo nombre y elegir cartones de nuevo.', en:'Their cards will be freed. They can rejoin with the same name and pick cards again.'},
+  rmYes:          {es:'Sí, quitar',            en:'Yes, remove'},
+  rmCancel:       {es:'← Cancelar',            en:'← Cancel'},
+  kicked:         {es:'El Animador te quitó de la sala.', en:'The MC removed you from the room.'},
+  // Override modal
+  ovTitle:        {es:'Asignar premios (manual)', en:'Assign prizes (manual)'},
+  ovNote:         {es:'Para jugadores con cartón de papel. Marca uno o varios ganadores (varios = dividen el premio) y asigna. Se anuncia a todos y se valida oficialmente.', en:'For players with paper cards. Select one or more winners (multiple = split) and assign. Announced to everyone and officially recorded.'},
+  ovAssign:       {es:'Asignar',               en:'Assign'},
+  ovSplit:        {es:'dividir',               en:'split'},
+  // Join errors
+  errRoomNotFound:{es:'Sala no encontrada. Revisa el código.', en:'Room not found. Check the code.'},
+  errCreate:      {es:'Error al crear la sala. Intenta de nuevo.', en:'Error creating room. Try again.'},
+  errJoin:        {es:'Error al unirse. Intenta de nuevo.', en:'Error joining. Try again.'},
+  // Carton selection
+  chooseN:        {es:'Elige tus 2 cartones',  en:'Choose your 2 cards'},
+  selectMore:     {es:'Selecciona',            en:'Select'},
+  moreCards:      {es:'cartón(es) más.',       en:'more card(s).'},
+  // Dynamic announcements (per-viewer)
+  winsThe:        {es:'gana la',               en:'wins'},
+  requests:       {es:'Solicita',              en:'Requests'},
+  wonPique:       {es:'ganó El Pique',         en:'won El Pique'},
+  // Split / dividir
+  divide:         {es:'Dividir',               en:'Split'},
+  divideTip:      {es:'Dividir entre los que reclaman', en:'Split among claimants'},
+  // Game log
+  logDrew:        {es:'Salió el',              en:'Drew'},
+  logShouts:      {es:'grita',                 en:'shouts'},
+  logRejected:    {es:'solicitud rechazada',   en:'claim rejected'},
 };
 const t = (lang, key) => TR[key]?.[lang] ?? TR[key]?.es ?? key;
 
@@ -841,7 +899,7 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
     <div className="lobby">
       <div className="lobby-hdr">
         <div className="code-pill">
-          <span className="code-lbl">Sala</span>
+          <span className="code-lbl">{lang==='es'?'Sala':'Room'}</span>
           <span className="code-val">{room.code}</span>
           <span className="code-lbl">· {players.length} {lang==='es'?'jugadores':'players'}</span>
         </div>
@@ -875,7 +933,7 @@ function LobbyView({ room, me, players, settings, onSettings, onCarton, onSkin, 
                 <span className="p-name">{p.name}{p.id === me.id ? ` (${lang==='es'?'tú':'you'})` : ''}</span>
                 {p.isMC && <span className="p-tag-mc">MC</span>}
                 {pique.enabled && pique.participants.includes(p.id) && (
-                  <span title="En El Pique" style={{fontSize:'.8rem'}}>⚡</span>
+                  <span title={t(lang,'inPique')} style={{fontSize:'.8rem'}}>⚡</span>
                 )}
                 <span className="p-tag-ct">{idxsOf(p).map(i => `#${CARTONES[i].id}`).join(' ')}</span>
                 {me.isMC && !p.isMC && (
@@ -1229,7 +1287,7 @@ function PlayersStrip({ players, pique, me, lang, onRemove }) {
             {p.name}{p.id === me?.id ? ` (${lang==='es'?'tú':'you'})` : ''}
           </span>
           {p.isMC && <span className="p-tag-mc">MC</span>}
-          {pique?.enabled && pique.participants?.includes(p.id) && <span title="En El Pique" style={{fontSize:'.75rem'}}>⚡</span>}
+          {pique?.enabled && pique.participants?.includes(p.id) && <span title={t(lang,'inPique')} style={{fontSize:'.75rem'}}>⚡</span>}
           <span className="p-tag-ct">{idxsOf(p).map(i => `#${CARTONES[i].id}`).join(' ')}</span>
         </div>
       ))}
@@ -1469,16 +1527,14 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
                 disabled={pique.settled || pendingPiqReq || !canClaimPiq}
                 onClick={onClaimPique}>
                 {pique.settled
-                  ? `✓ ⚡ ${lang==='es'?'Pique':'Pique'} — ${pique.winner?.playerName}`
+                  ? `✓ ⚡ Pique — ${pique.winner?.playerName}`
                   : pendingPiqReq
-                    ? `⚡ ${lang==='es'?'¡Enviado! Esperando…':'Sent! Waiting…'}`
+                    ? `⚡ ${t(lang,'piqSent')}`
                     : '⚡ ¡PIQUE!'}
                 <span className="pz-sub">
                   {pique.settled
                     ? fmtClp(pique.winner?.amount ?? 0)
-                    : canClaimPiq
-                      ? lang==='es' ? '¡Tienes un número! ✓' : 'You have a number! ✓'
-                      : lang==='es' ? 'Esperando tu primer número…' : 'Waiting for your first number…'}
+                    : canClaimPiq ? t(lang,'piqHaveNum') : t(lang,'piqWaitNum')}
                 </span>
               </button>
             </div>
@@ -1490,19 +1546,19 @@ function GameView({ room, me, players, settings, game, onDraw, onMark, onClaim, 
               disabled={terna ? true : !canTerna}
               onClick={() => onClaim('terna')}>
               {terna ? '✓ Terna' : '¡TERNA!'}
-              <span className="pz-sub">{terna ? terna.playerName : canTerna ? 'Tienes 3 en fila ✓' : '3 marcas en fila'}</span>
+              <span className="pz-sub">{terna ? terna.playerName : canTerna ? t(lang,'pzTernaHave') : t(lang,'pzTernaNeed')}</span>
             </button>
             <button className={`pz-btn pz-linea${linea ? ' pz-won' : ''}`}
               disabled={linea ? true : !canLinea}
               onClick={() => onClaim('linea')}>
               {linea ? '✓ Línea' : '¡LÍNEA!'}
-              <span className="pz-sub">{linea ? linea.playerName : terna ? (canLinea ? 'Tienes fila completa ✓' : 'Fila completa') : 'Primero la Terna'}</span>
+              <span className="pz-sub">{linea ? linea.playerName : terna ? (canLinea ? t(lang,'pzLineaHave') : t(lang,'pzLineaNeed')) : t(lang,'pzLineaFirst')}</span>
             </button>
             <button className={`pz-btn pz-lota${lota ? ' pz-won' : ''}`}
               disabled={lota ? true : !canLota}
               onClick={() => onClaim('lota')}>
               {lota ? '✓ Lota' : '¡LOTA!'}
-              <span className="pz-sub">{lota ? lota.playerName : linea ? (canLota ? 'Cartón lleno ✓' : 'Cartón completo') : 'Primero la Línea'}</span>
+              <span className="pz-sub">{lota ? lota.playerName : linea ? (canLota ? t(lang,'pzLotaHave') : t(lang,'pzLotaNeed')) : t(lang,'pzLotaFirst')}</span>
             </button>
           </div>
         </div>
@@ -1892,13 +1948,13 @@ export default function App() {
             }
             ['terna','linea','lota'].forEach(type => {
               if (newGame.prizes[type] && !prevGame.prizes[type]) {
-                announce('win', `¡${newGame.prizes[type].playerName} gana la ${type.toUpperCase()}!`, type, fmtClp(newGame.prizes[type].amount), 5500);
+                announce('win', `¡${newGame.prizes[type].playerName} ${t(langRef.current,'winsThe')} ${type.toUpperCase()}!`, type, fmtClp(newGame.prizes[type].amount), 5500);
               }
             });
             // New request from another player
             newGame.requests.forEach(req => {
               if (!prevGame.requests.find(r => r.id === req.id) && req.playerId !== meRef.current?.id) {
-                announce('request', `¡${req.playerName}!`, req.type, `Solicita ${req.type.toUpperCase()}`, 3000);
+                announce('request', `¡${req.playerName}!`, req.type, `${t(langRef.current,'requests')} ${req.type.toUpperCase()}`, 3000);
               }
             });
             // Broadcast log entries carrying an announcement (e.g. incorrect-claim "shame")
@@ -2139,7 +2195,7 @@ export default function App() {
     const num = avail[Math.floor(Math.random() * avail.length)];
 
     const newCalled = [...game.calledNumbers, num];
-    const entry = { id: Date.now() + '', ts: tstamp(), msg: `Salió el ${num}`, type: 'draw' };
+    const entry = { id: Date.now() + '', ts: tstamp(), msg: `${t(langRef.current,'logDrew')} ${num}`, type: 'draw' };
     const newLog = [entry, ...game.log];
 
     // MC: update local state immediately for responsiveness
@@ -2176,7 +2232,7 @@ export default function App() {
 
     const reqId = Date.now() + '';
     const req   = { id: reqId, playerId: me.id, playerName: me.name, type: 'pique', ts: tstamp() };
-    const entry = { id: reqId, ts: tstamp(), msg: `${me.name} grita ⚡ ¡PIQUE!`, type: 'req', reqId };
+    const entry = { id: reqId, ts: tstamp(), msg: `${me.name} ${t(langRef.current,'logShouts')} ⚡ ¡PIQUE!`, type: 'req', reqId };
     const newRequests = [...game.requests, req];
     const newLog      = [entry, ...game.log];
 
@@ -2195,7 +2251,7 @@ export default function App() {
 
     const reqId = Date.now() + '';
     const req   = { id: reqId, playerId: me.id, playerName: me.name, type, ts: tstamp() };
-    const entry = { id: reqId, ts: tstamp(), msg: `${me.name} grita ¡${type.toUpperCase()}!`, type: 'req', reqId };
+    const entry = { id: reqId, ts: tstamp(), msg: `${me.name} ${t(langRef.current,'logShouts')} ¡${type.toUpperCase()}!`, type: 'req', reqId };
     const newRequests = [...game.requests, req];
     const newLog      = [entry, ...game.log];
 
@@ -2303,7 +2359,7 @@ export default function App() {
   const rejectRequest = useCallback(async (reqId) => {
     const req  = game.requests.find(r => r.id === reqId);
     if (!req) return;
-    const entry   = { id: Date.now()+'', ts: tstamp(), msg: `✗ ${req.playerName} — solicitud rechazada`, type:'inv' };
+    const entry   = { id: Date.now()+'', ts: tstamp(), msg: `✗ ${req.playerName} — ${t(langRef.current,'logRejected')}`, type:'inv' };
     const newReqs = game.requests.filter(r => r.id !== reqId);
     const newLog  = [entry, ...game.log];
     setGame(prev => ({ ...prev, requests: newReqs, log: newLog }));
